@@ -4,6 +4,15 @@ Zennの本 `postgresql-structures-explain` に対応する実験用リポジト�
 
 Docker Desktopなど、Docker Composeを使える環境で実行してください。PostgreSQLやpsqlを手元に別途インストールする必要はありません。公式PostgreSQLイメージを使うので、Dockerfileのビルドも不要です。
 
+## リポジトリを取得する
+
+```sh
+git clone https://github.com/hatsu38/postgresql-structures-lab.git
+cd postgresql-structures-lab
+```
+
+現在は非公開リポジトリです。取得にはリポジトリへのアクセス権が必要です。
+
 ## 起動してデータを用意する
 
 このREADMEがあるディレクトリで実行します。
