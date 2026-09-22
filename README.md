@@ -56,3 +56,30 @@ docker compose exec -T db psql -X -U postgres -d reading_map -f /lab/sql/01/00-s
 ```
 
 ホストへのポート公開はしていません。接続には `docker compose exec` を使います。パスワードはローカル実験専用の固定値です。
+
+## SQLファイルが見つからない場合
+
+`/lab/sql/01/00-setup.sql: No such file or directory` が出たら、まず手元とコンテナ内を比べます。
+
+```sh
+ls sql/01
+docker compose exec -T db ls /lab/sql/01
+```
+
+手元にファイルがあるのにコンテナ内が空の場合、起動中のコンテナのバインドマウントが現在のディレクトリを参照できていない可能性があります。Gitの切り替えなどでマウント元のディレクトリが作り直された場合にも起こりえます。コンテナを再作成して、マウントをやり直してください。
+
+```sh
+docker compose up -d --force-recreate --wait db
+docker compose exec -T db ls /lab/sql/01
+```
+
+この操作は接続を一度切りますが、DBの専用ボリュームは削除しません。`down --volumes`は不要です。
+
+初期化済みなら、セットアップを再実行せず、データを確認してから観察用SQLへ進みます。
+
+```sh
+docker compose exec -T db psql -X -U postgres -d reading_map -f /lab/sql/01/02-check.sql
+docker compose exec -T db psql -X -U postgres -d reading_map -a -f /lab/sql/01/01-observe.sql
+```
+
+まだ表を作っていない場合だけ、`00-setup.sql`を実行してください。
