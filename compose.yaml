@@ -1,0 +1,19 @@
+name: postgresql-structures-lab
+services:
+  db:
+    # 実測に使った公式イメージを固定（PostgreSQL 18.6）。
+    image: postgres@sha256:86c951e05bf56c93d95d397747fb8820ac76cc3bedb78f43abd83eedbe3666ae
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: reading-local
+      POSTGRES_DB: reading_map
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./sql:/lab/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d reading_map"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+volumes:
+  postgres_data:
