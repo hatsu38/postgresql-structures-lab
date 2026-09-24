@@ -1,5 +1,9 @@
 \set ON_ERROR_STOP on
 \pset pager off
+-- 観察する計画を単純にするため、接続ごとに設定します。
+SET max_parallel_workers_per_gather = 0;
+SET jit = off;
+SET work_mem = '4MB';
 \echo === environment ===
 SELECT version();
 SHOW shared_buffers;
