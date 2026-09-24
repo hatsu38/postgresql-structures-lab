@@ -15,4 +15,6 @@ BEGIN
     RAISE EXCEPTION '第1章ではbooksの索引は主キーの1本だけにします';
   END IF;
 END $$;
+DO
 \echo 第1章の初期データを確認しました。
+第1章の初期データを確認しました。

@@ -20,10 +20,11 @@ cd postgresql-structures-lab
 ```sh
 docker compose up -d --wait
 docker compose exec -T db psql -X -U postgres -d reading_map -f /lab/sql/01/00-setup.sql
+docker compose exec -T db psql -X -U postgres -d reading_map -a -f /lab/sql/01/01-observe.sql
 docker compose exec -T db psql -X -U postgres -d reading_map -f /lab/sql/01/02-check.sql
 ```
 
-初期データは本1,000冊、読了記録2万件です。番号には主キーの索引があり、題名には索引がありません。`00-setup.sql`は空のDBで一度だけ実行します。再実行時は既存の表を消さずエラーで停止します。
+初期データは本100万冊、読了記録200万件です。番号には主キーの索引があり、題名には索引がありません。`00-setup.sql`は空のDBで一度だけ実行します。再実行時は既存の表を消さずエラーで停止します。
 
 ## SQLを手で試す
 
