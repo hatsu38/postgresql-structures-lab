@@ -42,7 +42,7 @@ docker compose exec -T db psql -X -U postgres -d reading_map -a -f /lab/sql/01/0
 
 `results/local-chapter01.txt`を開くと、SQLと実行結果を確認できます。実行に失敗した場合は終了コードが0以外になります。バージョン・設定・件数・索引の状態も先頭に記録します。
 
-掲載用に採った実行結果は [results/chapter01-2026-09-22.txt](results/chapter01-2026-09-22.txt)、測定条件は [results/README.md](results/README.md) にあります。実行時間は環境やキャッシュ状態で変わります。ミリ秒の一致ではなく、処理方法と行数を比べてください。
+掲載用に採った実行結果は [results/chapter01-million-2026-09-23.txt](results/chapter01-million-2026-09-23.txt)、測定条件は [results/README.md](results/README.md) にあります。実行時間は環境やキャッシュ状態で変わります。ミリ秒の一致ではなく、処理方法と行数を比べてください。
 
 ## 中断・再開・やり直し
 
