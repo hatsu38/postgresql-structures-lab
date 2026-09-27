@@ -60,7 +60,19 @@ docker compose exec -T db psql -X -U postgres -d reading_map -a -f /lab/sql/02/0
 
 中断は `docker compose stop`、再開は `docker compose up -d --wait`。データは専用ボリュームに残ります。
 
-第1章の最初からやり直す場合だけ、次を実行します。**このCompose環境の実験データを削除します。**
+### 初期データを入れた直後の状態に戻す
+
+第1章の最初からやり直すときは、DBを起動したまま次を実行します。**このDBで作ったテーブル・Index・拡張と、書き換えたデータをすべて削除します。**
+
+```sh
+docker compose exec -T db psql -X -U postgres -d reading_map -f /lab/sql/reset.sql
+```
+
+`00-setup.sql`を実行した直後と同じ状態に戻り、最後に`02-check.sql`で件数を確認します。同じDBへの他の接続は切断されるので、psqlを開いたままなら接続し直してください。手元では10秒ほどで終わります。
+
+### ボリュームごと作り直す
+
+DBが起動しないなど、上のリセットが使えない場合だけ、次を実行します。**このCompose環境の実験データを削除します。**
 
 ```sh
 docker compose down --volumes
