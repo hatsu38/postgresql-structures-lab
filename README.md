@@ -54,6 +54,16 @@ docker compose exec -T db psql -X -U postgres -d reading_map -a -f /lab/sql/02/0
 
 第1章で本100万冊・記録200万件を用意するので、第2章で本を追加したり、第7章で記録を作り直したりする必要はありません。旧版の1,000冊で準備済みの場合は、下記の「やり直し」を実験データを消してよいときにだけ行ってください。既存データを残す場合は別の空のDBでセットアップします。
 
+## 第12章：2,000万件での測り直し
+
+序章と同じ規模（本100万冊・読了記録2,000万件）で、第12章の3つの案を測ります。本の実験用DBとは別のDBを作り、終わったら消します。約2GBの領域を使います。
+
+```sh
+docker compose exec -T db psql -X -U postgres -c "CREATE DATABASE ranking_20m"
+docker compose exec -T db psql -X -U postgres -d ranking_20m -a -f /lab/sql/12/ranking-20m.sql > results/local-ranking-20m.txt
+docker compose exec -T db psql -X -U postgres -c "DROP DATABASE ranking_20m"
+```
+
 ## 中断・再開・やり直し
 
 中断は `docker compose stop`、再開は `docker compose up -d --wait`。データは専用ボリュームに残ります。
