@@ -2,6 +2,8 @@
 
 本『図解 SQLの裏側で動くアルゴリズムとPostgreSQLの仕組み ─ 実行計画で確かめて理解する』に対応する実験用リポジトリです。本の「準備」の章で案内する実験環境の作り方と、途中から実験を再開する手順は、このREADMEにまとめています。第1・2章と第12章の2,000万件の測り直しはSQLファイルを収録しています。ほかの章は本の本文のSQLで進めます。
 
+『EXPLAINを読みながら学ぶPostgreSQLとアルゴリズム』のSQLを手元で実行する手順（共通設定、章ごとの準備と後片付け）は、[sql-internals/README.md](sql-internals/README.md)にまとめています。環境の作り方は、このREADMEの手順を使います。
+
 Docker Desktopなど、Docker Composeを使える環境で実行してください。PostgreSQLやpsqlを手元に別途インストールする必要はありません。公式PostgreSQLイメージを使うので、Dockerfileのビルドも不要です。
 
 ## リポジトリを取得する
