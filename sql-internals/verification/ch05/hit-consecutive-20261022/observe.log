@@ -1,0 +1,359 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                           version                                                           
+-----------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.3 (Homebrew) on aarch64-apple-darwin25.2.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SHOW shared_buffers;
+ shared_buffers 
+----------------
+ 128MB
+(1 row)
+
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+CREATE EXTENSION IF NOT EXISTS pageinspect;
+CREATE EXTENSION
+CREATE INDEX IF NOT EXISTS books_title_idx ON books (title);
+CREATE INDEX
+ANALYZE books;
+ANALYZE
+-- Index Scan で測る。Seq Scan と Bitmap Scan は使わせない。
+SET enable_seqscan = off;
+SET
+SET enable_bitmapscan = off;
+SET
+-- Index の段数（level=2 なら、根から葉まで3ページをたどる）
+SELECT level FROM bt_metap('books_pkey');
+ level 
+-------
+     2
+(1 row)
+
+SELECT level FROM bt_metap('books_title_idx');
+ level 
+-------
+     2
+(1 row)
+
+-- 使うレコードの場所（ctid は（ページ番号, ページ内番号））
+SELECT id, title, ctid FROM books WHERE id IN (1, 100, 101, 136, 137) ORDER BY id;
+ id  |     title      |  ctid   
+-----+----------------+---------
+   1 | 実験用の本 1   | (0,1)
+ 100 | 実験用の本 100 | (0,100)
+ 101 | 実験用の本 101 | (0,101)
+ 136 | 実験用の本 136 | (0,136)
+ 137 | 実験用の本 137 | (1,1)
+(5 rows)
+
+-- 題名の順に取り出すと、ページ0 → ページ7 → ページ0 の順になる
+SELECT title, ctid FROM books
+WHERE title IN ('実験用の本 100', '実験用の本 1000', '実験用の本 101')
+ORDER BY title;
+      title      |  ctid   
+-----------------+---------
+ 実験用の本 100  | (0,100)
+ 実験用の本 1000 | (7,48)
+ 実験用の本 101  | (0,101)
+(3 rows)
+
+-- 各SQLを2回ずつ実行する。1回目は、そのセッションで最初に使うページやカタログを読むので、値が増えることがある。
+\echo CASE_A_1ROW
+CASE_A_1ROW
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id = 1;
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..8.44 rows=1 width=30) (actual time=0.005..0.005 rows=1.00 loops=1)
+   Index Cond: (id = 1)
+   Index Searches: 1
+   Buffers: shared hit=7
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.016 ms
+ Execution Time: 0.008 ms
+(8 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id = 1;
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..8.44 rows=1 width=30) (actual time=0.002..0.003 rows=1.00 loops=1)
+   Index Cond: (id = 1)
+   Index Searches: 1
+   Buffers: shared hit=4
+ Planning Time: 0.010 ms
+ Execution Time: 0.005 ms
+(6 rows)
+
+\echo CASE_B_100ROWS_SAME_PAGE
+CASE_B_100ROWS_SAME_PAGE
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id BETWEEN 1 AND 100;
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..10.45 rows=101 width=30) (actual time=0.004..0.011 rows=100.00 loops=1)
+   Index Cond: ((id >= 1) AND (id <= 100))
+   Index Searches: 1
+   Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=14
+ Planning Time: 0.038 ms
+ Execution Time: 0.015 ms
+(8 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id BETWEEN 1 AND 100;
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..10.45 rows=101 width=30) (actual time=0.004..0.011 rows=100.00 loops=1)
+   Index Cond: ((id >= 1) AND (id <= 100))
+   Index Searches: 1
+   Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.036 ms
+ Execution Time: 0.017 ms
+(8 rows)
+
+\echo CASE_C_272ROWS_TWO_PAGES
+CASE_C_272ROWS_TWO_PAGES
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id BETWEEN 1 AND 272;
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..15.91 rows=274 width=30) (actual time=0.007..0.025 rows=272.00 loops=1)
+   Index Cond: ((id >= 1) AND (id <= 272))
+   Index Searches: 1
+   Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.027 ms
+ Execution Time: 0.035 ms
+(8 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id BETWEEN 1 AND 272;
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..15.91 rows=274 width=30) (actual time=0.007..0.025 rows=272.00 loops=1)
+   Index Cond: ((id >= 1) AND (id <= 272))
+   Index Searches: 1
+   Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.026 ms
+ Execution Time: 0.034 ms
+(8 rows)
+
+\echo CASE_D_TWO_TITLES_PAGE0_PAGE0
+CASE_D_TWO_TITLES_PAGE0_PAGE0
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books
+WHERE title IN ('実験用の本 100', '実験用の本 101');
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_title_idx on books  (cost=0.42..14.19 rows=2 width=30) (actual time=0.021..0.036 rows=2.00 loops=1)
+   Index Cond: (title = ANY ('{"実験用の本 100","実験用の本 101"}'::text[]))
+   Index Searches: 2
+   Buffers: shared hit=7
+ Planning Time: 0.013 ms
+ Execution Time: 0.038 ms
+(6 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books
+WHERE title IN ('実験用の本 100', '実験用の本 101');
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_title_idx on books  (cost=0.42..14.19 rows=2 width=30) (actual time=0.019..0.034 rows=2.00 loops=1)
+   Index Cond: (title = ANY ('{"実験用の本 100","実験用の本 101"}'::text[]))
+   Index Searches: 2
+   Buffers: shared hit=7
+ Planning Time: 0.011 ms
+ Execution Time: 0.036 ms
+(6 rows)
+
+\echo CASE_E_THREE_TITLES_PAGE0_PAGE7_PAGE0
+CASE_E_THREE_TITLES_PAGE0_PAGE7_PAGE0
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books
+WHERE title IN ('実験用の本 100', '実験用の本 1000', '実験用の本 101');
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_title_idx on books  (cost=0.42..19.94 rows=3 width=30) (actual time=0.021..0.037 rows=3.00 loops=1)
+   Index Cond: (title = ANY ('{"実験用の本 100","実験用の本 1000","実験用の本 101"}'::text[]))
+   Index Searches: 2
+   Buffers: shared hit=9
+ Planning Time: 0.011 ms
+ Execution Time: 0.039 ms
+(6 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books
+WHERE title IN ('実験用の本 100', '実験用の本 1000', '実験用の本 101');
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_title_idx on books  (cost=0.42..19.94 rows=3 width=30) (actual time=0.021..0.037 rows=3.00 loops=1)
+   Index Cond: (title = ANY ('{"実験用の本 100","実験用の本 1000","実験用の本 101"}'::text[]))
+   Index Searches: 2
+   Buffers: shared hit=9
+ Planning Time: 0.011 ms
+ Execution Time: 0.038 ms
+(6 rows)
+
+-- Buffers の数を、テーブルとIndexに分ける。
+-- トランザクションの中で、テーブルとIndexに数えたページ数（hit と read の合計）を、実行の前後で引く。
+-- プランナがIndexやテーブルを読む分を除くため、計画を作り直さない（generic plan）で、同じSQLを2回実行して、2回目の前後を引く。
+SET plan_cache_mode = force_generic_plan;
+SET
+PREPARE q_one(bigint) AS
+SELECT id, title FROM books WHERE id = $1;
+PREPARE
+PREPARE q_pk(bigint, bigint) AS
+SELECT id, title FROM books WHERE id BETWEEN $1 AND $2;
+PREPARE
+PREPARE q_in2(text, text) AS
+SELECT id, title FROM books WHERE title IN ($1, $2);
+PREPARE
+PREPARE q_in3(text, text, text) AS
+SELECT id, title FROM books WHERE title IN ($1, $2, $3);
+PREPARE
+\echo SPLIT_A_1ROW
+SPLIT_A_1ROW
+BEGIN;
+BEGIN
+EXECUTE q_one(1) \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) AS t0,
+       pg_stat_get_xact_blocks_fetched('books_pkey'::regclass) AS i0 \gset
+EXECUTE q_one(1) \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) - :t0 AS table_pages,
+       pg_stat_get_xact_blocks_fetched('books_pkey'::regclass) - :i0 AS index_pages;
+ table_pages | index_pages 
+-------------+-------------
+           1 |           3
+(1 row)
+
+COMMIT;
+COMMIT
+\echo SPLIT_B_100ROWS_SAME_PAGE
+SPLIT_B_100ROWS_SAME_PAGE
+BEGIN;
+BEGIN
+EXECUTE q_pk(1, 100) \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) AS t0,
+       pg_stat_get_xact_blocks_fetched('books_pkey'::regclass) AS i0 \gset
+EXECUTE q_pk(1, 100) \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) - :t0 AS table_pages,
+       pg_stat_get_xact_blocks_fetched('books_pkey'::regclass) - :i0 AS index_pages;
+ table_pages | index_pages 
+-------------+-------------
+           1 |           3
+(1 row)
+
+COMMIT;
+COMMIT
+\echo SPLIT_C_272ROWS_TWO_PAGES
+SPLIT_C_272ROWS_TWO_PAGES
+BEGIN;
+BEGIN
+EXECUTE q_pk(1, 272) \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) AS t0,
+       pg_stat_get_xact_blocks_fetched('books_pkey'::regclass) AS i0 \gset
+EXECUTE q_pk(1, 272) \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) - :t0 AS table_pages,
+       pg_stat_get_xact_blocks_fetched('books_pkey'::regclass) - :i0 AS index_pages;
+ table_pages | index_pages 
+-------------+-------------
+           2 |           3
+(1 row)
+
+COMMIT;
+COMMIT
+\echo SPLIT_D_TWO_TITLES_PAGE0_PAGE0
+SPLIT_D_TWO_TITLES_PAGE0_PAGE0
+BEGIN;
+BEGIN
+EXECUTE q_in2('実験用の本 100', '実験用の本 101') \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) AS t0,
+       pg_stat_get_xact_blocks_fetched('books_title_idx'::regclass) AS i0 \gset
+EXECUTE q_in2('実験用の本 100', '実験用の本 101') \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) - :t0 AS table_pages,
+       pg_stat_get_xact_blocks_fetched('books_title_idx'::regclass) - :i0 AS index_pages;
+ table_pages | index_pages 
+-------------+-------------
+           1 |           6
+(1 row)
+
+COMMIT;
+COMMIT
+\echo SPLIT_E_THREE_TITLES_PAGE0_PAGE7_PAGE0
+SPLIT_E_THREE_TITLES_PAGE0_PAGE7_PAGE0
+BEGIN;
+BEGIN
+EXECUTE q_in3('実験用の本 100', '実験用の本 1000', '実験用の本 101') \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) AS t0,
+       pg_stat_get_xact_blocks_fetched('books_title_idx'::regclass) AS i0 \gset
+EXECUTE q_in3('実験用の本 100', '実験用の本 1000', '実験用の本 101') \g /dev/null
+SELECT pg_stat_get_xact_blocks_fetched('books'::regclass) - :t0 AS table_pages,
+       pg_stat_get_xact_blocks_fetched('books_title_idx'::regclass) - :i0 AS index_pages;
+ table_pages | index_pages 
+-------------+-------------
+           3 |           6
+(1 row)
+
+COMMIT;
+COMMIT
+-- 比べるために、Seq Scan も測る。1ページに136件ずつ入っているが、数えるのはページ数の分だけ。
+RESET plan_cache_mode;
+RESET
+SET enable_seqscan = on;
+SET
+SET enable_indexscan = off;
+SET
+SELECT pg_relation_size('books') / 8192 AS table_pages, count(*) AS records FROM books;
+ table_pages | records 
+-------------+---------
+        7353 | 1000000
+(1 row)
+
+\echo CASE_F_SEQ_SCAN
+CASE_F_SEQ_SCAN
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM books;
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=19853.00..19853.01 rows=1 width=8) (actual time=71.720..71.721 rows=1.00 loops=1)
+   Buffers: shared hit=4841 read=2512
+   ->  Seq Scan on books  (cost=0.00..17353.00 rows=1000000 width=0) (actual time=0.006..40.048 rows=1000000.00 loops=1)
+         Buffers: shared hit=4841 read=2512
+ Planning Time: 0.042 ms
+ Execution Time: 71.734 ms
+(6 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM books;
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=19853.00..19853.01 rows=1 width=8) (actual time=70.398..70.398 rows=1.00 loops=1)
+   Buffers: shared hit=4935 read=2418
+   ->  Seq Scan on books  (cost=0.00..17353.00 rows=1000000 width=0) (actual time=0.008..39.062 rows=1000000.00 loops=1)
+         Buffers: shared hit=4935 read=2418
+ Planning Time: 0.045 ms
+ Execution Time: 70.413 ms
+(6 rows)
+
