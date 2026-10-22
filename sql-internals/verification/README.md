@@ -26,6 +26,7 @@
 | 第3章 | [`ch03/books-20261010`](ch03/books-20261010) | 2026-10-10 | `ch03-books-20261010` | `books` の `ctid` とページ数 |
 | 第4章 | [`ch04/index-20261004`](ch04/index-20261004) | 2026-10-04 | `ch03-20261004` | 題名の Index を作る前後の同じ検索（Seq Scan と Index Scan）、Index の大きさ、番号の範囲検索 |
 | 第5章 | [`ch05/books-buffer-20261012`](ch05/books-buffer-20261012) | 2026-10-12 | `ch05-books-buffer-20261012` | 共有バッファの再利用（`Buffers` の `hit`・`read`） |
+| 第5章 | [`ch05/hit-consecutive-20261022`](ch05/hit-consecutive-20261022) | 2026-10-22 | `ch05-hit-consecutive-20261022` | Index Scan が同じページを続けて使うときと、間に別のページをはさんで戻るときの `hit` の数え方（PostgreSQL 18.3、手元の一時クラスタ） |
 | 第5章 | [`ch05/reading-records-20261004`](ch05/reading-records-20261004) | 2026-10-04 | `ch04-reading-records-20261004` | 読了日時で9月20日の記録を検索する（Bitmap Index Scan・Bitmap Heap Scan） |
 | 第6章 | [`ch06/sort-20261004`](ch06/sort-20261004) | 2026-10-04 | `ch05-20261004` | ソート（`work_mem` を64MBと64kBにして、499,998件を並べる。外部ソートの `trace_sort`） |
 | 第7章 | [`ch07/top-n-20261004`](ch07/top-n-20261004) | 2026-10-04 | `ch06-20261004` | 全件ソートと `LIMIT 20` の top-N heapsort |
