@@ -1,0 +1,93 @@
+{
+  "version": 180006,
+  "stmts": [
+    {
+      "stmt": {
+        "SelectStmt": {
+          "targetList": [
+            {
+              "ResTarget": {
+                "val": {
+                  "ColumnRef": {
+                    "fields": [
+                      {
+                        "String": {
+                          "sval": "id"
+                        }
+                      }
+                    ],
+                    "location": 7
+                  }
+                },
+                "location": 7
+              }
+            },
+            {
+              "ResTarget": {
+                "val": {
+                  "ColumnRef": {
+                    "fields": [
+                      {
+                        "String": {
+                          "sval": "title"
+                        }
+                      }
+                    ],
+                    "location": 11
+                  }
+                },
+                "location": 11
+              }
+            }
+          ],
+          "fromClause": [
+            {
+              "RangeVar": {
+                "relname": "books",
+                "inh": true,
+                "relpersistence": "p",
+                "location": 22
+              }
+            }
+          ],
+          "whereClause": {
+            "A_Expr": {
+              "kind": "AEXPR_OP",
+              "name": [
+                {
+                  "String": {
+                    "sval": "="
+                  }
+                }
+              ],
+              "lexpr": {
+                "ColumnRef": {
+                  "fields": [
+                    {
+                      "String": {
+                        "sval": "title"
+                      }
+                    }
+                  ],
+                  "location": 34
+                }
+              },
+              "rexpr": {
+                "A_Const": {
+                  "sval": {
+                    "sval": "実験用の本 42"
+                  },
+                  "location": 42
+                }
+              },
+              "location": 40
+            }
+          },
+          "limitOption": "LIMIT_OPTION_DEFAULT",
+          "op": "SETOP_NONE"
+        }
+      },
+      "stmt_len": 62
+    }
+  ]
+}

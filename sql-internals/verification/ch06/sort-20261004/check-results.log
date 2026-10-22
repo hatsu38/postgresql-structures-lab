@@ -1,0 +1,5 @@
+memory: rows=499998, order=OK, date_range=OK, sha256=15a7420fba832df635666b01e5fe34eb53735a0c287b5044c224ad0f55fd7633
+first=['758963', '2026-09-20 23:59:59'], last=['333366', '2026-09-14 00:00:00']
+external: rows=499998, order=OK, date_range=OK, sha256=15a7420fba832df635666b01e5fe34eb53735a0c287b5044c224ad0f55fd7633
+first=['758963', '2026-09-20 23:59:59'], last=['333366', '2026-09-14 00:00:00']
+Two outputs are byte-for-byte identical, including order and duplicates.

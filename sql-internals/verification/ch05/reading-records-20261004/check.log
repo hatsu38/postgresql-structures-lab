@@ -1,0 +1,126 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+BEGIN;
+BEGIN
+-- 計画と結果を同じ設定で確認し、三方式の結果を双方向に比較する。
+EXPLAIN (COSTS OFF) SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on reading_records
+   Recheck Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+   ->  Bitmap Index Scan on reading_records_finished_at_idx
+         Index Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+(4 rows)
+
+CREATE TEMP TABLE bitmap_result ON COMMIT DROP AS
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+SELECT 71427
+SET LOCAL enable_bitmapscan = off;
+SET
+SET LOCAL enable_seqscan = off;
+SET
+EXPLAIN (COSTS OFF) SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using reading_records_finished_at_idx on reading_records
+   Index Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+(2 rows)
+
+CREATE TEMP TABLE index_result ON COMMIT DROP AS
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+SELECT 71427
+SET LOCAL enable_seqscan = on;
+SET
+SET LOCAL enable_indexscan = off;
+SET
+EXPLAIN (COSTS OFF) SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Seq Scan on reading_records
+   Filter: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+(2 rows)
+
+CREATE TEMP TABLE seq_result ON COMMIT DROP AS
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+SELECT 71427
+SELECT 'bitmap-index' AS comparison, count(*) AS differences FROM
+((TABLE bitmap_result EXCEPT ALL TABLE index_result) UNION ALL
+ (TABLE index_result EXCEPT ALL TABLE bitmap_result)) AS d
+UNION ALL
+SELECT 'bitmap-seq', count(*) FROM
+((TABLE bitmap_result EXCEPT ALL TABLE seq_result) UNION ALL
+ (TABLE seq_result EXCEPT ALL TABLE bitmap_result)) AS d;
+  comparison  | differences 
+--------------+-------------
+ bitmap-index |           0
+ bitmap-seq   |           0
+(2 rows)
+
+ROLLBACK;
+ROLLBACK
+DROP INDEX reading_records_finished_at_idx;
+DROP INDEX
+DROP TABLE books_observation;
+DROP TABLE
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename IN ('books', 'reading_records') ORDER BY tablename, indexname;
+    indexname    |                             indexdef                             
+-----------------+------------------------------------------------------------------
+ books_pkey      | CREATE UNIQUE INDEX books_pkey ON public.books USING btree (id)
+ books_title_idx | CREATE INDEX books_title_idx ON public.books USING btree (title)
+(2 rows)
+
+SELECT to_regclass('books_observation') IS NULL AS observation_removed;
+ observation_removed 
+---------------------
+ t
+(1 row)
+
+SHOW enable_seqscan;
+ enable_seqscan 
+----------------
+ on
+(1 row)
+
+SHOW enable_indexscan;
+ enable_indexscan 
+------------------
+ on
+(1 row)
+
+SHOW enable_bitmapscan;
+ enable_bitmapscan 
+-------------------
+ on
+(1 row)
+
+SHOW work_mem;
+ work_mem 
+----------
+ 4MB
+(1 row)
+
+SELECT to_regclass('reading_records_finished_at_idx') IS NULL AS datetime_index_removed;
+ datetime_index_removed 
+------------------------
+ t
+(1 row)
+

@@ -1,0 +1,284 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+SHOW seq_page_cost;
+ seq_page_cost 
+---------------
+ 1
+(1 row)
+
+SHOW random_page_cost;
+ random_page_cost 
+------------------
+ 4
+(1 row)
+
+SHOW cpu_tuple_cost;
+ cpu_tuple_cost 
+----------------
+ 0.01
+(1 row)
+
+SHOW cpu_index_tuple_cost;
+ cpu_index_tuple_cost 
+----------------------
+ 0.005
+(1 row)
+
+SHOW cpu_operator_cost;
+ cpu_operator_cost 
+-------------------
+ 0.0025
+(1 row)
+
+SHOW effective_cache_size;
+ effective_cache_size 
+----------------------
+ 4GB
+(1 row)
+
+BEGIN;
+BEGIN
+CREATE TABLE stats_demo AS
+SELECT n AS id,
+       CASE WHEN n <= 9000 THEN 'popular' ELSE 'rare' END AS category
+FROM generate_series(1, 10000) AS n;
+SELECT 10000
+CREATE INDEX stats_demo_category_idx ON stats_demo(category);
+CREATE INDEX
+ANALYZE stats_demo;
+ANALYZE
+SELECT category, count(*) FROM stats_demo GROUP BY category ORDER BY category;
+ category | count 
+----------+-------
+ popular  |  9000
+ rare     |  1000
+(2 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM stats_demo WHERE category = 'popular';
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Seq Scan on stats_demo  (cost=0.00..189.00 rows=9000 width=11) (actual time=0.004..0.924 rows=9000.00 loops=1)
+   Filter: (category = 'popular'::text)
+   Rows Removed by Filter: 1000
+   Buffers: shared hit=64
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.036 ms
+ Execution Time: 1.257 ms
+(8 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM stats_demo WHERE category = 'rare';
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using stats_demo_category_idx on stats_demo  (cost=0.29..35.78 rows=1000 width=11) (actual time=0.030..0.143 rows=1000.00 loops=1)
+   Index Cond: (category = 'rare'::text)
+   Index Searches: 1
+   Buffers: shared hit=7 read=3
+ Planning Time: 0.026 ms
+ Execution Time: 0.189 ms
+(6 rows)
+
+\x on
+Expanded display is on.
+SELECT most_common_vals, most_common_freqs, n_distinct,
+       histogram_bounds IS NULL AS no_histogram
+FROM pg_stats WHERE schemaname = 'public'
+  AND tablename = 'stats_demo' AND attname = 'category';
+-[ RECORD 1 ]-----+---------------
+most_common_vals  | {popular,rare}
+most_common_freqs | {0.9,0.1}
+n_distinct        | 2
+no_histogram      | t
+
+\x off
+Expanded display is off.
+SELECT relpages, reltuples FROM pg_class WHERE oid = 'stats_demo'::regclass;
+ relpages | reltuples 
+----------+-----------
+       64 |     10000
+(1 row)
+
+SELECT relpages * current_setting('seq_page_cost')::numeric AS page_cost,
+       reltuples::numeric * current_setting('cpu_tuple_cost')::numeric AS tuple_cost,
+       reltuples::numeric * current_setting('cpu_operator_cost')::numeric AS filter_cost
+FROM pg_class WHERE oid = 'stats_demo'::regclass;
+ page_cost | tuple_cost | filter_cost 
+-----------+------------+-------------
+        64 |     100.00 |     25.0000
+(1 row)
+
+SET LOCAL enable_seqscan = off;
+SET
+SET LOCAL enable_bitmapscan = off;
+SET
+EXPLAIN SELECT * FROM stats_demo WHERE category = 'popular';
+                                           QUERY PLAN                                           
+------------------------------------------------------------------------------------------------
+ Index Scan using stats_demo_category_idx on stats_demo  (cost=0.29..258.79 rows=9000 width=11)
+   Index Cond: (category = 'popular'::text)
+(2 rows)
+
+SET LOCAL enable_seqscan = on;
+SET
+SET LOCAL enable_indexscan = off;
+SET
+EXPLAIN SELECT * FROM stats_demo WHERE category = 'rare';
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Seq Scan on stats_demo  (cost=0.00..189.00 rows=1000 width=11)
+   Filter: (category = 'rare'::text)
+(2 rows)
+
+SET LOCAL enable_indexscan = on;
+SET
+SET LOCAL enable_bitmapscan = on;
+SET
+ALTER TABLE stats_demo ALTER COLUMN id SET STATISTICS 10;
+ALTER TABLE
+ANALYZE stats_demo;
+ANALYZE
+\x on
+Expanded display is on.
+SELECT n_distinct, histogram_bounds FROM pg_stats
+WHERE schemaname = 'public' AND tablename = 'stats_demo' AND attname = 'id';
+-[ RECORD 1 ]----+-------------------------------------------------------
+n_distinct       | -1
+histogram_bounds | {1,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000}
+
+\x off
+Expanded display is off.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM stats_demo WHERE id < 2500;
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Seq Scan on stats_demo  (cost=0.00..189.00 rows=2499 width=11) (actual time=0.007..0.485 rows=2499.00 loops=1)
+   Filter: (id < 2500)
+   Rows Removed by Filter: 7501
+   Buffers: shared hit=64
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.041 ms
+ Execution Time: 0.583 ms
+(8 rows)
+
+UPDATE stats_demo SET category = 'rare' WHERE id <= 8000;
+UPDATE 8000
+SELECT category, count(*) FROM stats_demo GROUP BY category ORDER BY category;
+ category | count 
+----------+-------
+ popular  |  1000
+ rare     |  9000
+(2 rows)
+
+SELECT most_common_vals, most_common_freqs FROM pg_stats
+WHERE schemaname='public' AND tablename='stats_demo' AND attname='category';
+ most_common_vals | most_common_freqs 
+------------------+-------------------
+ {popular,rare}   | {0.9,0.1}
+(1 row)
+
+SELECT relpages AS stats_pages, reltuples AS stats_rows,
+       pg_relation_size('stats_demo') / current_setting('block_size')::int AS current_pages
+FROM pg_class WHERE oid='stats_demo'::regclass;
+ stats_pages | stats_rows | current_pages 
+-------------+------------+---------------
+          64 |      10000 |           107
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM stats_demo WHERE category = 'rare';
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using stats_demo_category_idx on stats_demo  (cost=0.29..51.55 rows=1672 width=11) (actual time=0.005..0.841 rows=9000.00 loops=1)
+   Index Cond: (category = 'rare'::text)
+   Index Searches: 1
+   Buffers: shared hit=60
+ Planning Time: 0.014 ms
+ Execution Time: 1.194 ms
+(6 rows)
+
+ANALYZE stats_demo;
+ANALYZE
+SELECT most_common_vals, most_common_freqs FROM pg_stats
+WHERE schemaname='public' AND tablename='stats_demo' AND attname='category';
+ most_common_vals | most_common_freqs 
+------------------+-------------------
+ {rare,popular}   | {0.9,0.1}
+(1 row)
+
+SELECT relpages, reltuples FROM pg_class WHERE oid='stats_demo'::regclass;
+ relpages | reltuples 
+----------+-----------
+      107 |     10000
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM stats_demo WHERE category = 'rare';
+                                                  QUERY PLAN                                                   
+---------------------------------------------------------------------------------------------------------------
+ Seq Scan on stats_demo  (cost=0.00..232.00 rows=9000 width=9) (actual time=0.140..0.951 rows=9000.00 loops=1)
+   Filter: (category = 'rare'::text)
+   Rows Removed by Filter: 1000
+   Buffers: shared hit=107
+ Planning:
+   Buffers: shared hit=11
+ Planning Time: 0.040 ms
+ Execution Time: 1.285 ms
+(8 rows)
+
+ROLLBACK;
+ROLLBACK
+SELECT to_regclass('public.stats_demo') IS NULL AS demo_removed;
+ demo_removed 
+--------------
+ t
+(1 row)
+
+SHOW enable_seqscan;
+ enable_seqscan 
+----------------
+ on
+(1 row)
+
+SHOW enable_indexscan;
+ enable_indexscan 
+------------------
+ on
+(1 row)
+
+SHOW enable_bitmapscan;
+ enable_bitmapscan 
+-------------------
+ on
+(1 row)
+
+SELECT n_distinct FROM pg_stats
+WHERE schemaname='public' AND tablename='reading_records' AND attname='book_id';
+ n_distinct 
+------------
+      77812
+(1 row)
+
+EXPLAIN SELECT book_id, count(*) FROM reading_records GROUP BY book_id;
+                                  QUERY PLAN                                   
+-------------------------------------------------------------------------------
+ HashAggregate  (cost=40811.00..41589.12 rows=77812 width=16)
+   Group Key: book_id
+   ->  Seq Scan on reading_records  (cost=0.00..30811.00 rows=2000000 width=8)
+(3 rows)
+
+SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
+ actual_groups 
+---------------
+        736097
+(1 row)
+

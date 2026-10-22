@@ -1,0 +1,104 @@
+-- 第1章「SQLを実行したとき、PostgreSQLの中では何が起きているのか」の観察。
+-- 各段階で止まるエラーと、ビューの展開、計画と実行の時間を確かめる。
+\set ON_ERROR_STOP off
+-- 既存の第1章の実測（ch01-20261003/observe.sql）と同じ条件にそろえる
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+\echo === 1. 正しいSQL（結果）
+=== 1. 正しいSQL（結果）
+SELECT id, title FROM books WHERE title = '実験用の本 42';
+ id |     title     
+----+---------------
+ 42 | 実験用の本 42
+(1 row)
+
+\echo === 2. パーサで止まる（FROM を FORM と打つ）
+=== 2. パーサで止まる（FROM を FORM と打つ）
+SELECT id, title FORM books WHERE title = '実験用の本 42';
+ERROR:  syntax error at or near "books"
+LINE 1: SELECT id, title FORM books WHERE title = '実験用の本 42';
+                              ^
+\echo === 2b. FORM は列の別名として読まれる（books が続いたので止まった）
+=== 2b. FORM は列の別名として読まれる（books が続いたので止まった）
+SELECT id, title FORM FROM books WHERE id = 42;
+ id |     form      
+----+---------------
+ 42 | 実験用の本 42
+(1 row)
+
+\echo === 3. アナライザで止まる（列名の誤り）
+=== 3. アナライザで止まる（列名の誤り）
+SELECT id, titel FROM books WHERE title = '実験用の本 42';
+ERROR:  column "titel" does not exist
+LINE 1: SELECT id, titel FROM books WHERE title = '実験用の本 42';
+                   ^
+HINT:  Perhaps you meant to reference the column "books.title".
+\echo === 4. アナライザで止まる（テーブル名の誤り）
+=== 4. アナライザで止まる（テーブル名の誤り）
+SELECT id, title FROM book WHERE title = '実験用の本 42';
+ERROR:  relation "book" does not exist
+LINE 1: SELECT id, title FROM book WHERE title = '実験用の本 42';
+                              ^
+\echo === 5. アナライザで止まる（型が合わない）
+=== 5. アナライザで止まる（型が合わない）
+SELECT id, title FROM books WHERE title = 42;
+ERROR:  operator does not exist: text = integer
+LINE 1: SELECT id, title FROM books WHERE title = 42;
+                                                ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+\echo === 6. ビューを作る
+=== 6. ビューを作る
+CREATE VIEW book_titles AS SELECT id, title FROM books;
+CREATE VIEW
+\echo === 7. ビューの定義
+=== 7. ビューの定義
+\d+ book_titles
+                         View "public.book_titles"
+ Column |  Type  | Collation | Nullable | Default | Storage  | Description 
+--------+--------+-----------+----------+---------+----------+-------------
+ id     | bigint |           |          |         | plain    | 
+ title  | text   |           |          |         | extended | 
+View definition:
+ SELECT id,
+    title
+   FROM books;
+
+\echo === 8. ビューを検索すると、計画には books が出る
+=== 8. ビューを検索すると、計画には books が出る
+EXPLAIN SELECT id, title FROM book_titles WHERE title = '実験用の本 42';
+                        QUERY PLAN                        
+----------------------------------------------------------
+ Seq Scan on books  (cost=0.00..19853.00 rows=1 width=30)
+   Filter: (title = '実験用の本 42'::text)
+(2 rows)
+
+\echo === 9. 元のテーブルの計画（比較）
+=== 9. 元のテーブルの計画（比較）
+EXPLAIN SELECT id, title FROM books WHERE title = '実験用の本 42';
+                        QUERY PLAN                        
+----------------------------------------------------------
+ Seq Scan on books  (cost=0.00..19853.00 rows=1 width=30)
+   Filter: (title = '実験用の本 42'::text)
+(2 rows)
+
+\echo === 10. 実行まで進めると、計画と実行の時間が分かれて出る
+=== 10. 実行まで進めると、計画と実行の時間が分かれて出る
+EXPLAIN ANALYZE SELECT id, title FROM books WHERE title = '実験用の本 42';
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on books  (cost=0.00..19853.00 rows=1 width=30) (actual time=0.033..44.999 rows=1.00 loops=1)
+   Filter: (title = '実験用の本 42'::text)
+   Rows Removed by Filter: 999999
+   Buffers: shared hit=4483 read=2870 written=94
+ Planning Time: 0.014 ms
+ Execution Time: 45.012 ms
+(6 rows)
+
+\echo === 11. 片付け
+=== 11. 片付け
+DROP VIEW book_titles;
+DROP VIEW

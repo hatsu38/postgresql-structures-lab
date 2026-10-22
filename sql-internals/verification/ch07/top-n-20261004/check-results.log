@@ -1,0 +1,7 @@
+full: rows=499998, order=OK, date_range=OK, sha256=15a7420fba832df635666b01e5fe34eb53735a0c287b5044c224ad0f55fd7633
+first=['758963', '2026-09-20 23:59:59'], last=['333366', '2026-09-14 00:00:00']
+topn: rows=20, order=OK, date_range=OK, sha256=5bed60c89a608b8187f0627e6c6b7656eed4572d428ecbb69cc6f4bda256bcb9
+first=['758963', '2026-09-20 23:59:59'], last=['816337', '2026-09-20 23:59:36']
+index: rows=20, order=OK, date_range=OK, sha256=5bed60c89a608b8187f0627e6c6b7656eed4572d428ecbb69cc6f4bda256bcb9
+first=['758963', '2026-09-20 23:59:59'], last=['816337', '2026-09-20 23:59:36']
+Full sort first 20 rows, top-N, and Index outputs are byte-for-byte identical.

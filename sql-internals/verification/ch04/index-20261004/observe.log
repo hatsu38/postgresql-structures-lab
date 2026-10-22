@@ -1,0 +1,116 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+SELECT current_database(), datcollate, datlocprovider,
+       current_setting('block_size'), current_setting('shared_buffers')
+FROM pg_database WHERE datname = current_database();
+ current_database | datcollate | datlocprovider | current_setting | current_setting 
+------------------+------------+----------------+-----------------+-----------------
+ reading_map      | en_US.utf8 | c              | 8192            | 128MB
+(1 row)
+
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'books' ORDER BY indexname;
+ indexname  |                            indexdef                             
+------------+-----------------------------------------------------------------
+ books_pkey | CREATE UNIQUE INDEX books_pkey ON public.books USING btree (id)
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE title = '実験用の本 42';
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on books  (cost=0.00..19853.00 rows=1 width=30) (actual time=0.163..54.009 rows=1.00 loops=1)
+   Filter: (title = '実験用の本 42'::text)
+   Rows Removed by Filter: 999999
+   Buffers: shared hit=4644 read=2709 dirtied=287
+ Planning:
+   Buffers: shared hit=30
+ Planning Time: 0.104 ms
+ Execution Time: 54.026 ms
+(8 rows)
+
+CREATE INDEX books_title_idx ON books (title);
+CREATE INDEX
+ANALYZE books;
+ANALYZE
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE title = '実験用の本 42';
+                                                        QUERY PLAN                                                         
+---------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_title_idx on books  (cost=0.42..8.44 rows=1 width=30) (actual time=0.082..0.082 rows=1.00 loops=1)
+   Index Cond: (title = '実験用の本 42'::text)
+   Index Searches: 1
+   Buffers: shared read=4
+ Planning:
+   Buffers: shared hit=10 read=1
+ Planning Time: 0.097 ms
+ Execution Time: 0.093 ms
+(8 rows)
+
+SELECT id, title FROM books WHERE title = '実験用の本 42';
+ id |     title     
+----+---------------
+ 42 | 実験用の本 42
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books WHERE id BETWEEN 400000 AND 400010;
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Index Scan using books_pkey on books  (cost=0.42..8.62 rows=10 width=30) (actual time=0.038..0.039 rows=11.00 loops=1)
+   Index Cond: ((id >= 400000) AND (id <= 400010))
+   Index Searches: 1
+   Buffers: shared hit=4 read=3
+ Planning:
+   Buffers: shared hit=6
+ Planning Time: 0.030 ms
+ Execution Time: 0.043 ms
+(8 rows)
+
+SELECT id, title FROM books WHERE id BETWEEN 400000 AND 400010 ORDER BY id;
+   id   |       title       
+--------+-------------------
+ 400000 | 実験用の本 400000
+ 400001 | 実験用の本 400001
+ 400002 | 実験用の本 400002
+ 400003 | 実験用の本 400003
+ 400004 | 実験用の本 400004
+ 400005 | 実験用の本 400005
+ 400006 | 実験用の本 400006
+ 400007 | 実験用の本 400007
+ 400008 | 実験用の本 400008
+ 400009 | 実験用の本 400009
+ 400010 | 実験用の本 400010
+(11 rows)
+
+SELECT pg_size_pretty(pg_relation_size('books_title_idx')) AS index_size;
+ index_size 
+------------
+ 39 MB
+(1 row)
+
+SELECT pg_relation_size('books_title_idx') AS index_bytes;
+ index_bytes 
+-------------
+    40640512
+(1 row)
+
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'books' ORDER BY indexname;
+    indexname    |                             indexdef                             
+-----------------+------------------------------------------------------------------
+ books_pkey      | CREATE UNIQUE INDEX books_pkey ON public.books USING btree (id)
+ books_title_idx | CREATE INDEX books_title_idx ON public.books USING btree (title)
+(2 rows)
+

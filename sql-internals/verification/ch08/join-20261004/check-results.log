@@ -1,0 +1,9 @@
+nested records= 499998 sha256= 49b7a0fa502dd46db73d7942e58bb6b73f21df45b8fe70f00e8fa9fa049c9476
+hash records= 499998 sha256= 49b7a0fa502dd46db73d7942e58bb6b73f21df45b8fe70f00e8fa9fa049c9476
+merge records= 499998 sha256= 49b7a0fa502dd46db73d7942e58bb6b73f21df45b8fe70f00e8fa9fa049c9476
+hash64 records= 499998 sha256= 49b7a0fa502dd46db73d7942e58bb6b73f21df45b8fe70f00e8fa9fa049c9476
+latest20: 件数、題名、日時、順序が結合前の最新20件と一致
+latest first: ['758963', '実験用の本 758963', '2026-09-20 23:59:59']
+latest last: ['816337', '実験用の本 816337', '2026-09-20 23:59:36']
+week distinct books: 255238
+全方式で、重複を含む全レコードが結合前の記録と一致
