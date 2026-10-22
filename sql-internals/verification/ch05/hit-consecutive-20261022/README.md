@@ -41,7 +41,7 @@ psql -X -a -U postgres -d reading_map < observe.sql > observe.log 2>&1
 
 ## 根拠（ソースと公式）
 
-`REL_18_STABLE`（2026-10-22に取得）で確かめた。次の箇所は `REL_18_6` でも同じ（`heapam_handler.c` は全体が同一。`bufmgr.c` は、7159行目の1か所だけが違い、下の2つの関数は同じ行にある）。
+`REL_18_STABLE`（2026-10-22に取得）で確かめた。次の箇所は `REL_18_6` でも同じ（`heapam_handler.c` は全体が同一。`bufmgr.c` は、7159行目の1か所だけが違い、下の2つの関数は同じ行にある）。測定した PostgreSQL 18.3（`REL_18_3`）は、`heapam_handler.c` が同一で、`bufmgr.c` の行番号だけが違う（`ReleaseAndReadBuffer()` は3008〜3041行目、`shared_blks_hit++` は1157行目）。`ReleaseAndReadBuffer()` の中身は同じで、`PinBufferForBlock()` は、先頭の `pg_attribute_always_inline` と `pg_always_inline` の違いだけ。
 
 - Index Scan がテーブルのページを取りに行く処理：`src/backend/access/heap/heapam_handler.c` の `heapam_index_fetch_tuple()`（133〜135行目）。
   ```c
