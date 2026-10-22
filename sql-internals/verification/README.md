@@ -36,6 +36,7 @@
 | 第10章 | [`ch10/stats-20261004`](ch10/stats-20261004) | 2026-10-04 | `ch09-20261004` | 統計・推定件数・cost（読書記録200万件の集計の `n_distinct` など） |
 | 第10章 | [`ch10/agg-cost-20261018`](ch10/agg-cost-20261018) | 2026-10-18 | `ch10-agg-cost-20261018` | 読書記録5件の集計で、HashAggregate と GroupAggregate の cost を比べる |
 | 第10章 | [`ch10/cats-20261018`](ch10/cats-20261018) | 2026-10-18 | `ch10-cats-20261018` | 猫の血液型のテーブル `cats` の統計・cost・統計の更新 |
+| 第10章 | [`ch10/analyze-sample-20261022`](ch10/analyze-sample-20261022) | 2026-10-22 | `ch10-analyze-sample-20261022` | `ANALYZE` が統計に使うレコードの件数（読書記録200万件では全ページを読み、標本は30,000件。PostgreSQL 18.3、手元の一時クラスタ） |
 | 第11章 | [`ch11/mvcc-vacuum-20261004`](ch11/mvcc-vacuum-20261004) | 2026-10-04 | `ch10-20261004` | Visibility Map と Index Only Scan（同じディレクトリに、本では扱わない Repeatable Read との比較も入っている） |
 | 第11章 | [`ch11/two-sessions-rc-20261019`](ch11/two-sessions-rc-20261019) | 2026-10-19 | `ch11-two-sessions-rc-20261019` | 2つの接続の実験（Read Committed）と、実行中の SELECT が元のレコードを残す実験 |
 | 第11章 | [`ch11/xmin-xmax-20261020`](ch11/xmin-xmax-20261020) | 2026-10-20 | `ch11-xmin-xmax-20261020` | レコードに付いたトランザクションの番号（`xmin`・`xmax`） |
