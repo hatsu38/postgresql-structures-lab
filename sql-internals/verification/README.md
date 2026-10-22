@@ -41,5 +41,6 @@
 | 第11章 | [`ch11/xmin-xmax-20261020`](ch11/xmin-xmax-20261020) | 2026-10-20 | `ch11-xmin-xmax-20261020` | レコードに付いたトランザクションの番号（`xmin`・`xmax`） |
 | 第11章 | [`ch11/cats-vacuum-20261019`](ch11/cats-vacuum-20261019) | 2026-10-19 | `ch11-cats-vacuum-20261019` | `cats` の UPDATE・VACUUM 前後のページ数 |
 | 第11章 | [`ch11/cats-pages-20261022`](ch11/cats-pages-20261022) | 2026-10-22 | `ch11-cats-pages-20261022` | `cats` の UPDATE・VACUUM 前後のページの中身（空のページが18ページ残る）と、作り方によるページ数の違い（PostgreSQL 18.3、手元の一時クラスタ） |
+| 第11章 | [`ch11/vm-index-state-20261022`](ch11/vm-index-state-20261022) | 2026-10-22 | `ch11-vm-index-state-20261022` | 更新・再VACUUM前後の、元のレコードとIndexの項目の状態（表11.1・図11.7。再VACUUMは何も片付けず、印が付くのは新しいレコードのページだけ。PostgreSQL 18.3、手元の一時クラスタ） |
 
 第12章（「おわりに」）は、実行結果を載せていないので、このディレクトリにはありません。
