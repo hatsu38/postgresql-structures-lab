@@ -1,0 +1,172 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                           version                                                           
+-----------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.3 (Homebrew) on aarch64-apple-darwin25.2.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SHOW default_statistics_target;
+ default_statistics_target 
+---------------------------
+ 100
+(1 row)
+
+SHOW autovacuum;
+ autovacuum 
+------------
+ off
+(1 row)
+
+-- 第10章の補足「第9章のグループ数の見積もりがずれた理由」で使う読書記録200万件。
+-- 作り方は ch10/stats-20261004/setup.sql と同じ（books は使わないので作らない）。
+\echo == 1. 読書記録200万件を作る（ANALYZE はまだしない）
+== 1. 読書記録200万件を作る（ANALYZE はまだしない）
+BEGIN;
+BEGIN
+CREATE TABLE reading_records (
+  book_id bigint NOT NULL,
+  finished_at timestamp NOT NULL
+);
+CREATE TABLE
+INSERT INTO reading_records
+SELECT ((floor(power(1 + u * (power(1000001::float8, 0.2) - 1), 5))::bigint
+          * 386413) % 1000000) + 1,
+       timestamp '2026-08-24'
+         + ((n::bigint * 104729) % 2419200) * interval '1 second'
+FROM (SELECT n, n * 0.6180339887498949::float8
+                - floor(n * 0.6180339887498949::float8) AS u
+      FROM generate_series(1, 2000000) AS n) AS s;
+INSERT 0 2000000
+COMMIT;
+COMMIT
+SELECT count(*) AS records,
+       pg_relation_size('reading_records') / 8192 AS file_pages
+FROM reading_records;
+ records | file_pages 
+---------+------------
+ 2000000 |      10811
+(1 row)
+
+SELECT relpages, reltuples FROM pg_class WHERE relname = 'reading_records';
+ relpages | reltuples 
+----------+-----------
+        0 |        -1
+(1 row)
+
+\echo == 2. 既定の統計目標（default_statistics_target=100）で ANALYZE VERBOSE を3回
+== 2. 既定の統計目標（default_statistics_target=100）で ANALYZE VERBOSE を3回
+ANALYZE VERBOSE reading_records;
+INFO:  analyzing "public.reading_records"
+INFO:  "reading_records": scanned 10811 of 10811 pages, containing 2000000 live rows and 0 dead rows; 30000 rows in sample, 2000000 estimated total rows
+INFO:  finished analyzing table "reading_map.public.reading_records"
+avg read rate: 0.000 MB/s, avg write rate: 0.142 MB/s
+buffer usage: 10959 hits, 0 reads, 1 dirtied
+WAL usage: 5 records, 0 full page images, 3275 bytes, 0 buffers full
+system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.05 s
+ANALYZE
+SELECT n_distinct FROM pg_stats
+WHERE tablename = 'reading_records' AND attname = 'book_id';
+ n_distinct 
+------------
+      76634
+(1 row)
+
+ANALYZE VERBOSE reading_records;
+INFO:  analyzing "public.reading_records"
+INFO:  "reading_records": scanned 10811 of 10811 pages, containing 2000000 live rows and 0 dead rows; 30000 rows in sample, 2000000 estimated total rows
+INFO:  finished analyzing table "reading_map.public.reading_records"
+avg read rate: 0.000 MB/s, avg write rate: 0.000 MB/s
+buffer usage: 10827 hits, 0 reads, 0 dirtied
+WAL usage: 3 records, 0 full page images, 2858 bytes, 0 buffers full
+system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.05 s
+ANALYZE
+SELECT n_distinct FROM pg_stats
+WHERE tablename = 'reading_records' AND attname = 'book_id';
+ n_distinct 
+------------
+      77882
+(1 row)
+
+ANALYZE VERBOSE reading_records;
+INFO:  analyzing "public.reading_records"
+INFO:  "reading_records": scanned 10811 of 10811 pages, containing 2000000 live rows and 0 dead rows; 30000 rows in sample, 2000000 estimated total rows
+INFO:  finished analyzing table "reading_map.public.reading_records"
+avg read rate: 0.000 MB/s, avg write rate: 0.000 MB/s
+buffer usage: 10826 hits, 0 reads, 0 dirtied
+WAL usage: 4 records, 0 full page images, 2919 bytes, 0 buffers full
+system usage: CPU: user: 0.05 s, system: 0.00 s, elapsed: 0.05 s
+ANALYZE
+SELECT n_distinct FROM pg_stats
+WHERE tablename = 'reading_records' AND attname = 'book_id';
+ n_distinct 
+------------
+      76296
+(1 row)
+
+SELECT relpages, reltuples FROM pg_class WHERE relname = 'reading_records';
+ relpages | reltuples 
+----------+-----------
+    10811 |     2e+06
+(1 row)
+
+\echo == 3. 本の番号の種類数（実際）
+== 3. 本の番号の種類数（実際）
+SELECT count(DISTINCT book_id) AS actual_distinct FROM reading_records;
+ actual_distinct 
+-----------------
+          736097
+(1 row)
+
+\echo == 4. 統計目標を1000にして ANALYZE VERBOSE
+== 4. 統計目標を1000にして ANALYZE VERBOSE
+SET default_statistics_target = 1000;
+SET
+ANALYZE VERBOSE reading_records;
+INFO:  analyzing "public.reading_records"
+INFO:  "reading_records": scanned 10811 of 10811 pages, containing 2000000 live rows and 0 dead rows; 300000 rows in sample, 2000000 estimated total rows
+INFO:  finished analyzing table "reading_map.public.reading_records"
+avg read rate: 0.000 MB/s, avg write rate: 0.055 MB/s
+buffer usage: 10865 hits, 0 reads, 2 dirtied
+WAL usage: 26 records, 0 full page images, 19397 bytes, 0 buffers full
+system usage: CPU: user: 0.27 s, system: 0.00 s, elapsed: 0.28 s
+ANALYZE
+SELECT n_distinct FROM pg_stats
+WHERE tablename = 'reading_records' AND attname = 'book_id';
+ n_distinct 
+------------
+  -0.145453
+(1 row)
+
+RESET default_statistics_target;
+RESET
+\echo == 5. 30,000ページより大きいテーブル（800万件、2列）では、読むページも30,000ページになるか
+== 5. 30,000ページより大きいテーブル（800万件、2列）では、読むページも30,000ページになるか
+CREATE TABLE big_records AS
+SELECT n::bigint AS id, timestamp '2026-08-24' + n * interval '1 second' AS finished_at
+FROM generate_series(1, 8000000) AS n;
+SELECT 8000000
+SELECT count(*) AS records,
+       pg_relation_size('big_records') / 8192 AS file_pages
+FROM big_records;
+ records | file_pages 
+---------+------------
+ 8000000 |      43264
+(1 row)
+
+ANALYZE VERBOSE big_records;
+INFO:  analyzing "public.big_records"
+INFO:  "big_records": scanned 30000 of 43264 pages, containing 5547085 live rows and 0 dead rows; 30000 rows in sample, 7999636 estimated total rows
+INFO:  finished analyzing table "reading_map.public.big_records"
+avg read rate: 617.975 MB/s, avg write rate: 0.164 MB/s
+buffer usage: 11202 hits, 18826 reads, 5 dirtied
+WAL usage: 6 records, 3 full page images, 18649 bytes, 0 buffers full
+system usage: CPU: user: 0.11 s, system: 0.01 s, elapsed: 0.23 s
+ANALYZE
