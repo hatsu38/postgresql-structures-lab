@@ -1,0 +1,237 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+SELECT current_database(), datcollate, datlocprovider FROM pg_database WHERE datname = current_database();
+ current_database | datcollate | datlocprovider 
+------------------+------------+----------------
+ reading_map      | en_US.utf8 | c
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SHOW shared_buffers;
+ shared_buffers 
+----------------
+ 128MB
+(1 row)
+
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+SHOW work_mem;
+ work_mem 
+----------
+ 4MB
+(1 row)
+
+SHOW enable_seqscan;
+ enable_seqscan 
+----------------
+ on
+(1 row)
+
+SHOW enable_indexscan;
+ enable_indexscan 
+------------------
+ on
+(1 row)
+
+SHOW enable_bitmapscan;
+ enable_bitmapscan 
+-------------------
+ on
+(1 row)
+
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename IN ('books','books_observation') ORDER BY tablename,indexname;
+       indexname        |                                        indexdef                                         
+------------------------+-----------------------------------------------------------------------------------------
+ books_pkey             | CREATE UNIQUE INDEX books_pkey ON public.books USING btree (id)
+ books_title_idx        | CREATE INDEX books_title_idx ON public.books USING btree (title)
+ books_observation_pkey | CREATE UNIQUE INDEX books_observation_pkey ON public.books_observation USING btree (id)
+(3 rows)
+
+SELECT count(*) FROM books_observation;
+ count 
+-------
+  1000
+(1 row)
+
+SELECT pg_relation_size('books_observation') / current_setting('block_size')::integer AS pages;
+ pages 
+-------
+     8
+(1 row)
+
+CREATE EXTENSION IF NOT EXISTS pg_buffercache;
+CREATE EXTENSION
+SELECT buffers_skipped FROM pg_buffercache_evict_relation('books_observation');
+ buffers_skipped 
+-----------------
+               0
+(1 row)
+
+\echo CACHE_FIRST
+CACHE_FIRST
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books_observation WHERE title = '実験用の本 42';
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Seq Scan on books_observation  (cost=0.00..20.50 rows=1 width=27) (actual time=0.138..0.252 rows=1.00 loops=1)
+   Filter: (title = '実験用の本 42'::text)
+   Rows Removed by Filter: 999
+   Buffers: shared read=8
+ Planning:
+   Buffers: shared hit=11
+ Planning Time: 0.056 ms
+ Execution Time: 0.262 ms
+(8 rows)
+
+\echo CACHE_SECOND
+CACHE_SECOND
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books_observation WHERE title = '実験用の本 42';
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Seq Scan on books_observation  (cost=0.00..20.50 rows=1 width=27) (actual time=0.006..0.045 rows=1.00 loops=1)
+   Filter: (title = '実験用の本 42'::text)
+   Rows Removed by Filter: 999
+   Buffers: shared hit=8
+ Planning Time: 0.022 ms
+ Execution Time: 0.049 ms
+(6 rows)
+
+\echo CACHE_THIRD
+CACHE_THIRD
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, title FROM books_observation WHERE title = '実験用の本 42';
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Seq Scan on books_observation  (cost=0.00..20.50 rows=1 width=27) (actual time=0.016..0.056 rows=1.00 loops=1)
+   Filter: (title = '実験用の本 42'::text)
+   Rows Removed by Filter: 999
+   Buffers: shared hit=8
+ Planning Time: 0.018 ms
+ Execution Time: 0.059 ms
+(6 rows)
+
+CREATE INDEX reading_records_finished_at_idx ON reading_records (finished_at);
+CREATE INDEX
+ANALYZE reading_records;
+ANALYZE
+\echo DATETIME_ORDER
+DATETIME_ORDER
+SELECT book_id, finished_at, ctid FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00'
+ORDER BY finished_at LIMIT 8;
+ book_id |     finished_at     |    ctid     
+---------+---------------------+-------------
+  813898 | 2026-09-20 00:00:00 | (1401,15)
+   94092 | 2026-09-20 00:00:01 | (6054,179)
+  596802 | 2026-09-20 00:00:02 | (10708,158)
+  356556 | 2026-09-20 00:00:03 | (2285,182)
+  386414 | 2026-09-20 00:00:04 | (6939,161)
+  965132 | 2026-09-20 00:00:06 | (3170,164)
+  786271 | 2026-09-20 00:00:07 | (7824,143)
+  190666 | 2026-09-20 00:00:09 | (4055,146)
+(8 rows)
+
+\echo BITMAP_DEFAULT
+BITMAP_DEFAULT
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on reading_records  (cost=1492.75..13357.87 rows=70275 width=16) (actual time=6.495..22.957 rows=71427.00 loops=1)
+   Recheck Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+   Heap Blocks: exact=10811
+   Buffers: shared hit=10815 read=194
+   ->  Bitmap Index Scan on reading_records_finished_at_idx  (cost=0.00..1475.18 rows=70275 width=0) (actual time=5.126..5.126 rows=71427.00 loops=1)
+         Index Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+         Index Searches: 1
+         Buffers: shared hit=4 read=194
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.043 ms
+ Execution Time: 25.672 ms
+(12 rows)
+
+BEGIN;
+BEGIN
+SET LOCAL enable_bitmapscan = off;
+SET
+SET LOCAL enable_seqscan = off;
+SET
+\echo INDEX_COMPARISON
+INDEX_COMPARISON
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using reading_records_finished_at_idx on reading_records  (cost=0.43..45415.17 rows=70275 width=16) (actual time=0.013..45.705 rows=71427.00 loops=1)
+   Index Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+   Index Searches: 1
+   Buffers: shared hit=71625
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.076 ms
+ Execution Time: 48.340 ms
+(8 rows)
+
+SET LOCAL enable_seqscan = on;
+SET
+SET LOCAL enable_indexscan = off;
+SET
+\echo SEQ_COMPARISON
+SEQ_COMPARISON
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Seq Scan on reading_records  (cost=0.00..40811.00 rows=70275 width=16) (actual time=0.009..67.963 rows=71427.00 loops=1)
+   Filter: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+   Rows Removed by Filter: 1928573
+   Buffers: shared hit=10811
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.076 ms
+ Execution Time: 70.613 ms
+(8 rows)
+
+ROLLBACK;
+ROLLBACK
+SELECT count(*) AS matching_records,
+       count(DISTINCT (ctid::text::point)[0]) AS matching_pages
+FROM reading_records
+WHERE finished_at >= '2026-09-20 00:00:00'
+  AND finished_at <  '2026-09-21 00:00:00';
+ matching_records | matching_pages 
+------------------+----------------
+            71427 |          10811
+(1 row)
+
+SELECT pg_relation_size('reading_records') / current_setting('block_size')::integer AS total_pages;
+ total_pages 
+-------------
+       10811
+(1 row)
+

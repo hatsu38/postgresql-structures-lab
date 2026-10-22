@@ -1,0 +1,109 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+\pset null '(NULL)'
+Null display is "(NULL)".
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+SELECT book_id, count(*) AS read_count
+FROM (VALUES (2), (1), (2), (4), (2)) AS records(book_id)
+GROUP BY book_id
+ORDER BY book_id;
+ book_id | read_count 
+---------+------------
+       1 |          1
+       2 |          3
+       4 |          1
+(3 rows)
+
+SELECT count(*) AS records,
+       count(minutes) AS measured_records,
+       sum(minutes) AS total_minutes,
+       avg(minutes) AS average_minutes
+FROM (VALUES (10), (30), (50), (NULL::integer)) AS sessions(minutes);
+ records | measured_records | total_minutes |   average_minutes   
+---------+------------------+---------------+---------------------
+       4 |                3 |            90 | 30.0000000000000000
+(1 row)
+
+SELECT count(*) AS records, count(minutes) AS measured_records,
+       sum(minutes) AS total_minutes, avg(minutes) AS average_minutes
+FROM (VALUES (NULL::integer)) AS sessions(minutes);
+ records | measured_records | total_minutes | average_minutes 
+---------+------------------+---------------+-----------------
+       1 |                0 |        (NULL) |          (NULL)
+(1 row)
+
+SELECT count(*) AS records, sum(minutes) AS total_minutes, avg(minutes) AS average_minutes
+FROM (VALUES (10)) AS sessions(minutes) WHERE false;
+ records | total_minutes | average_minutes 
+---------+---------------+-----------------
+       0 |        (NULL) |          (NULL)
+(1 row)
+
+\echo === group-count-experiment ===
+=== group-count-experiment ===
+CREATE TEMP TABLE few_groups (book_id integer NOT NULL);
+CREATE TABLE
+CREATE TEMP TABLE many_groups (book_id integer NOT NULL);
+CREATE TABLE
+INSERT INTO few_groups
+SELECT (n - 1) % 10 + 1 FROM generate_series(1, 10000) AS n;
+INSERT 0 10000
+INSERT INTO many_groups
+SELECT n FROM generate_series(1, 10000) AS n;
+INSERT 0 10000
+ANALYZE few_groups;
+ANALYZE
+ANALYZE many_groups;
+ANALYZE
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, count(*) FROM few_groups GROUP BY book_id;
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=195.00..195.10 rows=10 width=12) (actual time=1.815..1.816 rows=10.00 loops=1)
+   Group Key: book_id
+   Batches: 1  Memory Usage: 32kB
+   Buffers: local hit=45
+   ->  Seq Scan on few_groups  (cost=0.00..145.00 rows=10000 width=4) (actual time=0.004..0.670 rows=10000.00 loops=1)
+         Buffers: local hit=45
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.049 ms
+ Execution Time: 1.834 ms
+(10 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, count(*) FROM many_groups GROUP BY book_id;
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=195.00..295.00 rows=10000 width=12) (actual time=2.429..3.368 rows=10000.00 loops=1)
+   Group Key: book_id
+   Batches: 1  Memory Usage: 793kB
+   Buffers: local hit=45
+   ->  Seq Scan on many_groups  (cost=0.00..145.00 rows=10000 width=4) (actual time=0.004..0.673 rows=10000.00 loops=1)
+         Buffers: local hit=45
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.034 ms
+ Execution Time: 3.771 ms
+(10 rows)
+
+SELECT 'few_groups' AS source, count(*) AS groups, sum(n) AS total,
+       min(n) AS smallest, max(n) AS largest
+FROM (SELECT book_id, count(*) AS n FROM few_groups GROUP BY book_id) AS counts
+UNION ALL
+SELECT 'many_groups', count(*), sum(n), min(n), max(n)
+FROM (SELECT book_id, count(*) AS n FROM many_groups GROUP BY book_id) AS counts;
+   source    | groups | total | smallest | largest 
+-------------+--------+-------+----------+---------
+ few_groups  |     10 | 10000 |     1000 |    1000
+ many_groups |  10000 | 10000 |        1 |       1
+(2 rows)
+
+DROP TABLE few_groups, many_groups;
+DROP TABLE

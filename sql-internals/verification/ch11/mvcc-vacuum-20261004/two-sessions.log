@@ -1,0 +1,258 @@
+
+--- 接続A ---
+CREATE TABLE mvcc_books (id integer PRIMARY KEY, title text NOT NULL) WITH (autovacuum_enabled = false);
+INSERT INTO mvcc_books VALUES (42, '星の本');
+CREATE TABLE
+INSERT 0 1
+
+=== READ COMMITTED ===
+
+--- 接続A ---
+BEGIN ISOLATION LEVEL READ COMMITTED;
+BEGIN
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  
+----+--------+-------
+ 42 | 星の本 | (0,1)
+(1 row)
+
+
+--- 接続B ---
+BEGIN;
+UPDATE mvcc_books SET title = '新しい星の本' WHERE id = 42;
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+BEGIN
+UPDATE 1
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  
+----+--------+-------
+ 42 | 星の本 | (0,1)
+(1 row)
+
+
+--- 接続B ---
+COMMIT;
+COMMIT
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+--- 接続A ---
+COMMIT;
+COMMIT
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+=== REPEATABLE READ ===
+
+--- 接続A ---
+TRUNCATE mvcc_books;
+INSERT INTO mvcc_books VALUES (42, '星の本');
+TRUNCATE TABLE
+INSERT 0 1
+
+--- 接続A ---
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+BEGIN
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  
+----+--------+-------
+ 42 | 星の本 | (0,1)
+(1 row)
+
+
+--- 接続B ---
+BEGIN;
+UPDATE mvcc_books SET title = '新しい星の本' WHERE id = 42;
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+BEGIN
+UPDATE 1
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  
+----+--------+-------
+ 42 | 星の本 | (0,1)
+(1 row)
+
+
+--- 接続B ---
+COMMIT;
+COMMIT
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  
+----+--------+-------
+ 42 | 星の本 | (0,1)
+(1 row)
+
+
+=== 古い版がまだ必要な間のVACUUM ===
+
+--- 接続B ---
+VACUUM (VERBOSE) mvcc_books;
+INFO:  vacuuming "reading_map.public.mvcc_books"
+INFO:  finished vacuuming "reading_map.public.mvcc_books": index scans: 0
+pages: 0 removed, 1 remain, 1 scanned (100.00% of total), 0 eagerly scanned
+tuples: 0 removed, 2 remain, 1 are dead but not yet removable
+removable cutoff: 789, which was 1 XIDs old when operation ended
+new relfrozenxid: 788, which is 1 XIDs ahead of previous value
+frozen: 0 pages from table (0.00% of total) had 0 tuples frozen
+visibility map: 0 pages set all-visible, 0 pages set all-frozen (0 were all-visible)
+index scan not needed: 0 pages from table (0.00% of total) had 0 dead item identifiers removed
+avg read rate: 0.000 MB/s, avg write rate: 70.595 MB/s
+buffer usage: 21 hits, 0 reads, 3 dirtied
+WAL usage: 4 records, 3 full page images, 25030 bytes, 0 buffers full
+system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+INFO:  vacuuming "reading_map.pg_toast.pg_toast_16439"
+INFO:  finished vacuuming "reading_map.pg_toast.pg_toast_16439": index scans: 0
+pages: 0 removed, 0 remain, 0 scanned (100.00% of total), 0 eagerly scanned
+tuples: 0 removed, 0 remain, 0 are dead but not yet removable
+removable cutoff: 789, which was 1 XIDs old when operation ended
+new relfrozenxid: 789, which is 2 XIDs ahead of previous value
+frozen: 0 pages from table (100.00% of total) had 0 tuples frozen
+visibility map: 0 pages set all-visible, 0 pages set all-frozen (0 were all-visible)
+index scan not needed: 0 pages from table (100.00% of total) had 0 dead item identifiers removed
+avg read rate: 86.806 MB/s, avg write rate: 0.000 MB/s
+buffer usage: 28 hits, 1 reads, 0 dirtied
+WAL usage: 1 records, 0 full page images, 258 bytes, 0 buffers full
+system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+VACUUM
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  
+----+--------+-------
+ 42 | 星の本 | (0,1)
+(1 row)
+
+
+--- 接続A ---
+COMMIT;
+COMMIT
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+--- 接続B ---
+VACUUM (VERBOSE) mvcc_books;
+INFO:  vacuuming "reading_map.public.mvcc_books"
+INFO:  finished vacuuming "reading_map.public.mvcc_books": index scans: 0
+pages: 0 removed, 1 remain, 1 scanned (100.00% of total), 0 eagerly scanned
+tuples: 1 removed, 1 remain, 0 are dead but not yet removable
+removable cutoff: 790, which was 0 XIDs old when operation ended
+new relfrozenxid: 789, which is 1 XIDs ahead of previous value
+frozen: 0 pages from table (0.00% of total) had 0 tuples frozen
+visibility map: 1 pages set all-visible, 0 pages set all-frozen (0 were all-visible)
+index scan not needed: 0 pages from table (0.00% of total) had 0 dead item identifiers removed
+avg read rate: 0.000 MB/s, avg write rate: 97.656 MB/s
+buffer usage: 23 hits, 0 reads, 1 dirtied
+WAL usage: 3 records, 1 full page images, 8621 bytes, 0 buffers full
+system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+INFO:  vacuuming "reading_map.pg_toast.pg_toast_16439"
+VACUUM
+
+=== BEGINだけではRepeatable Readの基準は固定されない ===
+
+--- 接続A ---
+TRUNCATE mvcc_books;
+INSERT INTO mvcc_books VALUES (42, '星の本');
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+TRUNCATE TABLE
+INSERT 0 1
+BEGIN
+
+--- 接続B ---
+BEGIN;
+UPDATE mvcc_books SET title = '新しい星の本' WHERE id = 42;
+COMMIT;
+INFO:  finished vacuuming "reading_map.pg_toast.pg_toast_16439": index scans: 0
+pages: 0 removed, 0 remain, 0 scanned (100.00% of total), 0 eagerly scanned
+tuples: 0 removed, 0 remain, 0 are dead but not yet removable
+removable cutoff: 790, which was 0 XIDs old when operation ended
+new relfrozenxid: 790, which is 1 XIDs ahead of previous value
+frozen: 0 pages from table (100.00% of total) had 0 tuples frozen
+visibility map: 0 pages set all-visible, 0 pages set all-frozen (0 were all-visible)
+index scan not needed: 0 pages from table (100.00% of total) had 0 dead item identifiers removed
+avg read rate: 0.000 MB/s, avg write rate: 0.000 MB/s
+buffer usage: 12 hits, 0 reads, 0 dirtied
+WAL usage: 1 records, 0 full page images, 258 bytes, 0 buffers full
+system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+BEGIN
+UPDATE 1
+COMMIT
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+--- 接続A ---
+COMMIT;
+COMMIT
+
+=== ROLLBACKの確認 ===
+
+--- 接続B ---
+BEGIN;
+UPDATE mvcc_books SET title = '取り消す題名' WHERE id = 42;
+BEGIN
+UPDATE 1
+
+--- 接続B ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 取り消す題名 | (0,3)
+(1 row)
+
+
+--- 接続B ---
+ROLLBACK;
+ROLLBACK
+
+--- 接続A ---
+SELECT id, title, ctid FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  
+----+--------------+-------
+ 42 | 新しい星の本 | (0,2)
+(1 row)
+
+
+PASS: RC・RRの4時点、未確定の自分の版、古い版の保持、BEGINと最初のSELECTの違い、ROLLBACKを確認

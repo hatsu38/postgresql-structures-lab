@@ -1,0 +1,15 @@
+\set ON_ERROR_STOP on
+CREATE INDEX books_title_idx ON books (title);
+CREATE INDEX
+ANALYZE books;
+ANALYZE
+CREATE TABLE books_observation (
+  id bigint PRIMARY KEY,
+  title text NOT NULL
+);
+CREATE TABLE
+INSERT INTO books_observation
+SELECT id, title FROM books WHERE id BETWEEN 1 AND 1000 ORDER BY id;
+INSERT 0 1000
+ANALYZE books_observation;
+ANALYZE

@@ -1,0 +1,52 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+CREATE INDEX books_title_idx ON books(title);
+CREATE INDEX
+CREATE EXTENSION pg_buffercache;
+CREATE EXTENSION
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+SELECT current_database(), datcollate, datctype FROM pg_database WHERE datname=current_database();
+ current_database | datcollate |  datctype  
+------------------+------------+------------
+ reading_map      | en_US.utf8 | en_US.utf8
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SHOW shared_buffers;
+ shared_buffers 
+----------------
+ 128MB
+(1 row)
+
+SHOW default_statistics_target;
+ default_statistics_target 
+---------------------------
+ 100
+(1 row)
+
+SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname;
+ tablename |    indexname    |                             indexdef                             
+-----------+-----------------+------------------------------------------------------------------
+ books     | books_pkey      | CREATE UNIQUE INDEX books_pkey ON public.books USING btree (id)
+ books     | books_title_idx | CREATE INDEX books_title_idx ON public.books USING btree (title)
+(2 rows)
+
+SELECT count(*) AS records, count(DISTINCT finished_at) AS distinct_times,
+       count(*) FILTER (WHERE finished_at >= timestamp '2026-09-14' AND finished_at < timestamp '2026-09-21') AS week_records
+FROM reading_records;
+ records | distinct_times | week_records 
+---------+----------------+--------------
+ 2000000 |        2000000 |       499998
+(1 row)
+

@@ -1,0 +1,43 @@
+\set ON_ERROR_STOP on
+BEGIN;
+BEGIN
+CREATE TABLE books (
+  id bigint PRIMARY KEY,
+  title text NOT NULL
+);
+CREATE TABLE
+CREATE TABLE reading_records (
+  book_id bigint NOT NULL,
+  finished_at timestamp NOT NULL
+);
+CREATE TABLE
+INSERT INTO books
+SELECT n, '実験用の本 ' || n FROM generate_series(1, 1000000) AS n;
+INSERT 0 1000000
+INSERT INTO reading_records
+SELECT ((floor(power(1 + u * (power(1000001::float8, 0.2) - 1), 5))::bigint
+          * 386413) % 1000000) + 1,
+       timestamp '2026-08-24'
+         + ((n::bigint * 104729) % 2419200) * interval '1 second'
+FROM (SELECT n, n * 0.6180339887498949::float8
+                - floor(n * 0.6180339887498949::float8) AS u
+      FROM generate_series(1, 2000000) AS n) AS s;
+INSERT 0 2000000
+ANALYZE books;
+ANALYZE
+ANALYZE reading_records;
+ANALYZE
+SELECT count(*) FROM books;
+  count
+---------
+ 1000000
+(1 row)
+
+SELECT count(*) FROM reading_records;
+  count
+---------
+ 2000000
+(1 row)
+
+COMMIT;
+COMMIT

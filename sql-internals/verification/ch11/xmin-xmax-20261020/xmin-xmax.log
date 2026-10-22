@@ -1,0 +1,62 @@
+
+--- 接続A ---
+CREATE TABLE mvcc_books (id integer PRIMARY KEY, title text NOT NULL) WITH (autovacuum_enabled = false);
+INSERT INTO mvcc_books VALUES (42, '星の本');
+CREATE TABLE
+INSERT 0 1
+
+--- 接続A ---
+SELECT id, title, ctid, xmin, xmax FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  | xmin | xmax 
+----+--------+-------+------+------
+ 42 | 星の本 | (0,1) |  755 |    0
+(1 row)
+
+
+--- 接続B ---
+BEGIN;
+UPDATE mvcc_books SET title = '新しい星の本' WHERE id = 42;
+BEGIN
+UPDATE 1
+
+--- 接続B ---
+SELECT pg_current_xact_id();
+ pg_current_xact_id 
+--------------------
+                756
+(1 row)
+
+
+--- 接続B ---
+SELECT id, title, ctid, xmin, xmax FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  | xmin | xmax 
+----+--------------+-------+------+------
+ 42 | 新しい星の本 | (0,2) |  756 |    0
+(1 row)
+
+
+--- 接続A ---
+SELECT id, title, ctid, xmin, xmax FROM mvcc_books WHERE id = 42;
+ id | title  | ctid  | xmin | xmax 
+----+--------+-------+------+------
+ 42 | 星の本 | (0,1) |  755 |  756
+(1 row)
+
+
+--- 接続B ---
+COMMIT;
+COMMIT
+
+--- 接続A ---
+SELECT id, title, ctid, xmin, xmax FROM mvcc_books WHERE id = 42;
+ id |    title     | ctid  | xmin | xmax 
+----+--------------+-------+------+------
+ 42 | 新しい星の本 | (0,2) |  756 |    0
+(1 row)
+
+
+--- 接続A ---
+DROP TABLE mvcc_books;
+DROP TABLE
+
+PASS: 元のレコード(0,1)のxmin=755、BのCOMMIT前にAから見たxmax=756（Bの番号）、新しいレコード(0,2)のxmin=756を確認

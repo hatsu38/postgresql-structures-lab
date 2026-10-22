@@ -1,0 +1,78 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+SHOW hash_mem_multiplier;
+ hash_mem_multiplier 
+---------------------
+ 2
+(1 row)
+
+\echo === hash-aggregate ===
+=== hash-aggregate ===
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, count(*) AS read_count
+FROM reading_records
+GROUP BY book_id;
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=40811.00..41570.70 rows=75970 width=16) (actual time=555.511..814.537 rows=736097.00 loops=1)
+   Group Key: book_id
+   Batches: 21  Memory Usage: 8257kB  Disk Usage: 27752kB
+   Buffers: shared hit=10811, temp read=4090 written=6731
+   ->  Seq Scan on reading_records  (cost=0.00..30811.00 rows=2000000 width=8) (actual time=0.015..128.992 rows=2000000.00 loops=1)
+         Buffers: shared hit=10811
+ Planning:
+   Buffers: shared hit=95 read=3
+ Planning Time: 0.289 ms
+ Execution Time: 844.693 ms
+(10 rows)
+
+COPY (SELECT book_id, count(*) AS read_count FROM reading_records GROUP BY book_id) TO '/tmp/ch08-hash.csv' WITH (FORMAT csv);
+COPY 736097
+\echo === group-aggregate ===
+=== group-aggregate ===
+BEGIN;
+BEGIN
+SET LOCAL enable_hashagg = off;
+SET
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, count(*) AS read_count
+FROM reading_records
+GROUP BY book_id;
+                                                                QUERY PLAN                                                                
+------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=294817.69..310577.39 rows=75970 width=16) (actual time=499.135..970.170 rows=736097.00 loops=1)
+   Group Key: book_id
+   Buffers: shared hit=10814, temp read=2941 written=2952
+   ->  Sort  (cost=294817.69..299817.69 rows=2000000 width=8) (actual time=499.118..707.070 rows=2000000.00 loops=1)
+         Sort Key: book_id
+         Sort Method: external merge  Disk: 23528kB
+         Buffers: shared hit=10814, temp read=2941 written=2952
+         ->  Seq Scan on reading_records  (cost=0.00..30811.00 rows=2000000 width=8) (actual time=0.008..159.127 rows=2000000.00 loops=1)
+               Buffers: shared hit=10811
+ Planning Time: 0.060 ms
+ Execution Time: 999.144 ms
+(11 rows)
+
+COPY (SELECT book_id, count(*) AS read_count FROM reading_records GROUP BY book_id) TO '/tmp/ch08-group.csv' WITH (FORMAT csv);
+COPY 736097
+ROLLBACK;
+ROLLBACK
+SHOW enable_hashagg;
+ enable_hashagg 
+----------------
+ on
+(1 row)
+
+SHOW work_mem;
+ work_mem 
+----------
+ 4MB
+(1 row)
+

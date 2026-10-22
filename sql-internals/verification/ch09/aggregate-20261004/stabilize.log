@@ -1,0 +1,14 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+VACUUM (ANALYZE) books;
+VACUUM
+VACUUM (ANALYZE) reading_records;
+VACUUM
+SELECT relname, relpages, relallvisible FROM pg_class WHERE relname IN ('books','reading_records');
+     relname     | relpages | relallvisible 
+-----------------+----------+---------------
+ books           |     7353 |          7353
+ reading_records |    10811 |         10811
+(2 rows)
+

@@ -1,0 +1,4 @@
+hash groups= 736097 sum= 2000000 sha256= d10846bdbcb029692ad988c2e50bab4f52cc9855a76285e20bff2a5d9a0a0d45
+group groups= 736097 sum= 2000000 sha256= d10846bdbcb029692ad988c2e50bab4f52cc9855a76285e20bff2a5d9a0a0d45
+両方式とも、全200万件を独立に数えた本ごとの件数と一致
+記録のない本: 263903
