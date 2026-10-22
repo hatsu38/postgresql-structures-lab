@@ -1,0 +1,216 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                           version                                                           
+-----------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.3 (Homebrew) on aarch64-apple-darwin25.2.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET check_function_bodies = off;  -- 関数が読むテーブルは、あとで作る
+SET
+CREATE EXTENSION pg_visibility;
+CREATE EXTENSION
+CREATE EXTENSION pageinspect;
+CREATE EXTENSION
+-- 状態を調べる関数。更新の前後で、元のレコード（ページ4428の6番）と新しいレコード（ページ10810の151番）が、
+-- ヒープとIndexのどうなっているかを、ページの中身（pageinspect）と可視性マップで読む。ヒープやIndexを検索で読まない。
+-- lp_flags: 1=LP_NORMAL（レコードがある）、3=LP_DEAD（片付けられて、領域は空いたが、項目の番号だけ残っている）
+CREATE FUNCTION heap_state(p int, l int) RETURNS TABLE (page int, lp int, lp_flags int, lp_len int, t_xmax xid, all_visible bool) AS $$
+  SELECT p, i.lp, i.lp_flags, i.lp_len, i.t_xmax,
+         (SELECT v.all_visible FROM pg_visibility_map('mvcc_reading_records', p) v)
+  FROM heap_page_items(get_raw_page('mvcc_reading_records', p)) i WHERE i.lp = l
+$$ LANGUAGE sql;
+CREATE FUNCTION
+-- Indexの葉ページから、ヒープの (p,l) を指す項目を探し、dead（検索が「不要」と印を付けたもの）を返す。
+CREATE FUNCTION index_state(t tid) RETURNS TABLE (index_page int, index_item_dead bool) AS $$
+  SELECT s.pg, (SELECT b.dead FROM bt_page_items('mvcc_reading_records_book_time_idx', s.pg) b WHERE b.ctid = t)
+  FROM generate_series(1, (pg_relation_size('mvcc_reading_records_book_time_idx') / 8192)::int - 1) AS s(pg)
+  WHERE EXISTS (SELECT 1 FROM bt_page_items('mvcc_reading_records_book_time_idx', s.pg) b WHERE b.ctid = t)
+$$ LANGUAGE sql;
+CREATE FUNCTION
+CREATE TABLE mvcc_reading_records WITH (autovacuum_enabled = false) AS
+SELECT book_id, finished_at FROM reading_records;
+SELECT 2000000
+CREATE INDEX mvcc_reading_records_book_time_idx
+ON mvcc_reading_records (book_id, finished_at);
+CREATE INDEX
+VACUUM (ANALYZE) mvcc_reading_records;
+VACUUM
+\echo == 1. 最初のVACUUM後
+== 1. 最初のVACUUM後
+SELECT book_id, finished_at, ctid FROM mvcc_reading_records WHERE book_id = 42;
+ book_id |     finished_at     |   ctid   
+---------+---------------------+----------
+      42 | 2026-08-29 02:29:54 | (4428,6)
+(1 row)
+
+SELECT * FROM heap_state(4428, 6);
+ page | lp | lp_flags | lp_len | t_xmax | all_visible 
+------+----+----------+--------+--------+-------------
+ 4428 |  6 |        1 |     40 |      0 | t
+(1 row)
+
+SELECT * FROM index_state('(4428,6)');
+ index_page | index_item_dead 
+------------+-----------------
+          1 | f
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)
+SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
+                                                 QUERY PLAN                                                  
+-------------------------------------------------------------------------------------------------------------
+ Index Only Scan using mvcc_reading_records_book_time_idx on mvcc_reading_records (actual rows=1.00 loops=1)
+   Index Cond: (book_id = 42)
+   Heap Fetches: 0
+   Index Searches: 1
+   Buffers: shared hit=4
+(5 rows)
+
+\echo == 2. 日時を1秒進めてCOMMITした直後（検索の前）
+== 2. 日時を1秒進めてCOMMITした直後（検索の前）
+BEGIN;
+BEGIN
+UPDATE mvcc_reading_records
+SET finished_at = finished_at + interval '1 second' WHERE book_id = 42;
+UPDATE 1
+COMMIT;
+COMMIT
+SELECT 'old' AS version, * FROM heap_state(4428, 6);
+ version | page | lp | lp_flags | lp_len | t_xmax | all_visible 
+---------+------+----+----------+--------+--------+-------------
+ old     | 4428 |  6 |        1 |     40 |    767 | f
+(1 row)
+
+SELECT 'new' AS version, * FROM heap_state(10810, 151);
+ version | page  | lp  | lp_flags | lp_len | t_xmax | all_visible 
+---------+-------+-----+----------+--------+--------+-------------
+ new     | 10810 | 151 |        1 |     40 |      0 | f
+(1 row)
+
+SELECT 'old' AS version, * FROM index_state('(4428,6)');
+ version | index_page | index_item_dead 
+---------+------------+-----------------
+ old     |          1 | f
+(1 row)
+
+SELECT 'new' AS version, * FROM index_state('(10810,151)');
+ version | index_page | index_item_dead 
+---------+------------+-----------------
+ new     |          1 | f
+(1 row)
+
+\echo == 3. 1回目のIndex Only Scan（本の表11.1の「2」の検索）
+== 3. 1回目のIndex Only Scan（本の表11.1の「2」の検索）
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)
+SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
+                                                 QUERY PLAN                                                  
+-------------------------------------------------------------------------------------------------------------
+ Index Only Scan using mvcc_reading_records_book_time_idx on mvcc_reading_records (actual rows=1.00 loops=1)
+   Index Cond: (book_id = 42)
+   Heap Fetches: 2
+   Index Searches: 1
+   Buffers: shared hit=6
+(5 rows)
+
+SELECT 'old' AS version, * FROM heap_state(4428, 6);
+ version | page | lp | lp_flags | lp_len | t_xmax | all_visible 
+---------+------+----+----------+--------+--------+-------------
+ old     | 4428 |  6 |        3 |      0 |        | f
+(1 row)
+
+SELECT 'new' AS version, * FROM heap_state(10810, 151);
+ version | page  | lp  | lp_flags | lp_len | t_xmax | all_visible 
+---------+-------+-----+----------+--------+--------+-------------
+ new     | 10810 | 151 |        1 |     40 |      0 | f
+(1 row)
+
+SELECT 'old' AS version, * FROM index_state('(4428,6)');
+ version | index_page | index_item_dead 
+---------+------------+-----------------
+ old     |          1 | t
+(1 row)
+
+SELECT 'new' AS version, * FROM index_state('(10810,151)');
+ version | index_page | index_item_dead 
+---------+------------+-----------------
+ new     |          1 | f
+(1 row)
+
+\echo == 4. VACUUMの前に、もう1回同じ検索
+== 4. VACUUMの前に、もう1回同じ検索
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)
+SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
+                                                 QUERY PLAN                                                  
+-------------------------------------------------------------------------------------------------------------
+ Index Only Scan using mvcc_reading_records_book_time_idx on mvcc_reading_records (actual rows=1.00 loops=1)
+   Index Cond: (book_id = 42)
+   Heap Fetches: 1
+   Index Searches: 1
+   Buffers: shared hit=5
+(5 rows)
+
+\echo == 5. 再びVACUUM
+== 5. 再びVACUUM
+VACUUM (VERBOSE) mvcc_reading_records;
+INFO:  vacuuming "reading_map.public.mvcc_reading_records"
+INFO:  finished vacuuming "reading_map.public.mvcc_reading_records": index scans: 0
+pages: 0 removed, 10849 remain, 40 scanned (0.37% of total), 0 eagerly scanned
+tuples: 0 removed, 2000000 remain, 0 are dead but not yet removable
+removable cutoff: 768, which was 0 XIDs old when operation ended
+frozen: 0 pages from table (0.00% of total) had 0 tuples frozen
+visibility map: 1 pages set all-visible, 0 pages set all-frozen (0 were all-visible)
+index scan bypassed: 1 pages from table (0.01% of total) have 1 dead item identifiers
+avg read rate: 656.803 MB/s, avg write rate: 0.000 MB/s
+buffer usage: 59 hits, 38 reads, 0 dirtied
+WAL usage: 2 records, 0 full page images, 366 bytes, 0 buffers full
+system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+VACUUM
+SELECT 'old' AS version, * FROM heap_state(4428, 6);
+ version | page | lp | lp_flags | lp_len | t_xmax | all_visible 
+---------+------+----+----------+--------+--------+-------------
+ old     | 4428 |  6 |        3 |      0 |        | f
+(1 row)
+
+SELECT 'new' AS version, * FROM heap_state(10810, 151);
+ version | page  | lp  | lp_flags | lp_len | t_xmax | all_visible 
+---------+-------+-----+----------+--------+--------+-------------
+ new     | 10810 | 151 |        1 |     40 |      0 | t
+(1 row)
+
+SELECT 'old' AS version, * FROM index_state('(4428,6)');
+ version | index_page | index_item_dead 
+---------+------------+-----------------
+ old     |          1 | t
+(1 row)
+
+SELECT 'new' AS version, * FROM index_state('(10810,151)');
+ version | index_page | index_item_dead 
+---------+------------+-----------------
+ new     |          1 | f
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)
+SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
+                                                 QUERY PLAN                                                  
+-------------------------------------------------------------------------------------------------------------
+ Index Only Scan using mvcc_reading_records_book_time_idx on mvcc_reading_records (actual rows=1.00 loops=1)
+   Index Cond: (book_id = 42)
+   Heap Fetches: 0
+   Index Searches: 1
+   Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=4
+(7 rows)
+
