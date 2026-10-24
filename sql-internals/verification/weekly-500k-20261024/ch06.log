@@ -1,0 +1,69 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+\echo === memory ===
+=== memory ===
+SET work_mem = '64MB';
+SET
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= timestamp '2026-09-14'
+  AND finished_at < timestamp '2026-09-21'
+ORDER BY finished_at DESC, book_id ASC;
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=87260.80..88489.22 rows=491365 width=16) (actual time=169.963..200.029 rows=500000.00 loops=1)
+   Sort Key: finished_at DESC, book_id
+   Sort Method: quicksort  Memory: 27914kB
+   Buffers: shared hit=10817
+   ->  Seq Scan on reading_records  (cost=0.00..40811.00 rows=491365 width=16) (actual time=0.018..87.195 rows=500000.00 loops=1)
+         Filter: ((finished_at >= '2026-09-14 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+         Rows Removed by Filter: 1500000
+         Buffers: shared hit=10811
+ Planning:
+   Buffers: shared hit=73
+ Planning Time: 0.172 ms
+ Execution Time: 215.937 ms
+(12 rows)
+
+COPY (SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= timestamp '2026-09-14'
+  AND finished_at < timestamp '2026-09-21'
+ORDER BY finished_at DESC, book_id ASC) TO '/tmp/weekly-memory.csv' CSV;
+COPY 500000
+\echo === external ===
+=== external ===
+SET work_mem = '64kB';
+SET
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= timestamp '2026-09-14'
+  AND finished_at < timestamp '2026-09-21'
+ORDER BY finished_at DESC, book_id ASC;
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=120860.80..122089.22 rows=491365 width=16) (actual time=215.705..242.799 rows=500000.00 loops=1)
+   Sort Key: finished_at DESC, book_id
+   Sort Method: external merge  Disk: 12784kB
+   Buffers: shared hit=10811, temp read=6367 written=6793
+   ->  Seq Scan on reading_records  (cost=0.00..40811.00 rows=491365 width=16) (actual time=0.011..81.039 rows=500000.00 loops=1)
+         Filter: ((finished_at >= '2026-09-14 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+         Rows Removed by Filter: 1500000
+         Buffers: shared hit=10811
+ Planning Time: 0.044 ms
+ Execution Time: 259.241 ms
+(10 rows)
+
+COPY (SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= timestamp '2026-09-14'
+  AND finished_at < timestamp '2026-09-21'
+ORDER BY finished_at DESC, book_id ASC) TO '/tmp/weekly-external.csv' CSV;
+COPY 500000
+SET work_mem = '4MB';
+SET

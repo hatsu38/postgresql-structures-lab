@@ -1,0 +1,10 @@
+sort: 500000 records, date range and order OK; memory == external, sha256=575cbd8a2456ec94d24d0d9ad049877166773f91dad0acc815c970f0781b8a5a
+limit: full sort first 20 == top-N heapsort == Index Only Scan, sha256=b26c7fb8051e451d26a0688d1e0aa18079d8459b756e98e7fb974b19affd91de
+join nested: 500000 records, same multiset, sha256=f425f37d1e88bcacfcb651227a3c4220f1f95bd1a8bc4c2dd7c110a21ac4711a
+join hash: 500000 records, same multiset, sha256=f425f37d1e88bcacfcb651227a3c4220f1f95bd1a8bc4c2dd7c110a21ac4711a
+join merge: 500000 records, same multiset, sha256=f425f37d1e88bcacfcb651227a3c4220f1f95bd1a8bc4c2dd7c110a21ac4711a
+join hash64: 500000 records, same multiset, sha256=f425f37d1e88bcacfcb651227a3c4220f1f95bd1a8bc4c2dd7c110a21ac4711a
+aggregate hash: 736097 groups, total 2000000, identical counts, sha256=7b9fb07d37b8006987c54c2ea6e7cd26e4de15a2bfaea092612e9dc0ccb66a7a
+aggregate group: 736097 groups, total 2000000, identical counts, sha256=7b9fb07d37b8006987c54c2ea6e7cd26e4de15a2bfaea092612e9dc0ccb66a7a
+book distribution: all book IDs and counts match the original generator
+PASS
