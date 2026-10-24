@@ -181,7 +181,7 @@ LIMIT 20;
 
 本3冊と読書記録4件は、初期化時に`public.books_sample`・`public.join_records_sample`へ入っています。以前から使っているDBへ追加する場合や、データを入れ直す場合は、[小さな例の初期化](../README.md#small-samples)を実行してください。
 
-本文の`records_sample`にあたるのが、この環境の`public.join_records_sample`です。まず、結合のSQLを実行します。`public.`を付けると、以前の接続で同じ名前の一時テーブルを作っていても、準備済みの通常テーブルを使えます。
+まず、結合のSQLを実行します。本文と同じ`public.join_records_sample`と`public.books_sample`を使います。
 
 ```sql
 SELECT r.book_id, b.title
@@ -213,6 +213,8 @@ JOIN public.books_sample AS b ON b.id = r.book_id;
 サンプルの作成から、新しい接続でSELECTとEXPLAINを実行した手元の全出力は、[確認ログ](verification/small-samples/observe.log)にあります。[再現用SQL](verification/small-samples/observe.sql)でも同じ検索を試せます。
 
 ### 補足：結合方法を指定して比較する
+
+小さな例を各方式で比較したSQLと全出力は、[compare.sql](verification/small-samples/compare.sql)と[compare.log](verification/small-samples/compare.log)にあります。
 
 本文と同じように件数と繰り返し回数に表示を絞るには、`EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)`を使います。`COSTS OFF`以降は、見積もりや時間などの表示を省く指定です。
 
@@ -283,7 +285,7 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 途中から始める場合も、共通設定で`work_mem`を4MBにしてから進めます。
 
-読書記録5件は、初期化時に`public.aggregate_records_sample`へ入っています。本文の`records_sample`を、この名前に読み替えます。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
+読書記録5件は、初期化時に`public.aggregate_records_sample`へ入っています。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
 
 集計のSQLは次のとおりです。
 
@@ -307,6 +309,8 @@ GROUP BY book_id;
 この集計も、[再現用SQL](verification/small-samples/observe.sql)と[手元の確認ログ](verification/small-samples/observe.log)に含めています。
 
 ### 補足：集計方法を指定して比較する
+
+2種類の集計と、第10章で比べるcostのSQL・全出力は、[compare.sql](verification/small-samples/compare.sql)と[compare.log](verification/small-samples/compare.log)にあります。
 
 `GroupAggregate`を観察するには、`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使います。
 
