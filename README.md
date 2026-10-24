@@ -35,8 +35,23 @@ docker compose exec -T db psql -X -v ON_ERROR_STOP=1 -U postgres -d reading_map 
 | --- | --- | --- |
 | `books` | 番号と題名、100万レコード | `id`の主キーIndexあり、`title`のIndexなし |
 | `reading_records` | 本の番号と読了日時、200万レコード | Indexなし |
+| `books_sample` | 星・海・森の3冊 | `id`の主キーIndexあり |
+| `join_records_sample` | 第8章のJOIN用の読書記録4件 | Indexなし |
+| `aggregate_records_sample` | 第9章の集計用の読書記録5件 | Indexなし |
 
 読書記録は2026年8月24日から9月20日までの4週間に分かれ、各週に50万件ずつあります。よく読まれる本に記録が偏るデータで、日時は200万件すべて異なります。乱数は使わないので、作り直しても同じデータになります。
+
+<a id="small-samples"></a>
+
+### 星・海・森の小さな例を用意する
+
+星・海・森の小さな例も、初期化で用意されます。3つのサンプルテーブルは通常のテーブルなので、psqlで接続し直しても残ります。JOIN用と集計用を分けてあるため、章を移るときに記録を入れ直す必要はありません。
+
+すでに初期化済みのDBへ小さな例を追加する場合や、小さな例だけをやり直す場合は、次を実行します。3つのサンプルテーブルを空にして、上の内容を入れ直します。`-1`で作成と投入を1つのトランザクションにまとめます。
+
+```sh
+docker compose exec -T db psql -X -1 -v ON_ERROR_STOP=1 -U postgres -d reading_map -f /lab/sql/samples.sql
+```
 
 ## psqlで本のSQLを試す
 
@@ -148,5 +163,5 @@ docker compose exec -T db ls /lab/sql/01
 | --- | --- |
 | [sql-internals/README.md](sql-internals/README.md) | この本の章ごとの準備・実行・後片付け |
 | [sql-internals/verification/](sql-internals/verification/README.md) | この本の測定SQLと採取済みログ |
-| `sql/01/`・`sql/reset.sql` | 共通データの初期化・初期状態の確認・リセット |
+| `sql/01/`・`sql/samples.sql`・`sql/reset.sql` | 共通データと小さな例の初期化・初期状態の確認・リセット |
 | `sql/00/`・`sql/02/`・`sql/12/`・[results/](results/README.md) | 旧構成の実験SQLとログ。現在の本の章番号とは対応しません |

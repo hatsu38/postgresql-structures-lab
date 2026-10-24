@@ -22,7 +22,7 @@
 
 | ファイル | 対応する章と確認すること |
 | --- | --- |
-| `setup.sql` / `setup.log` | 空のDBにデータを作成。実験用リポジトリの`sql/01/00-setup.sql`と同じ内容 |
+| `setup.sql` / `setup.log` | 空のDBに本と読書記録を作成。実験用リポジトリの`sql/01/00-setup.sql`と同じ生成式を使用 |
 | `conditions.sql` / `conditions.log` | バージョン、設定、期間、件数、日時の一意性 |
 | `ch05.sql` / `ch05.log` | 9月20日分71,428件のBitmap Scan、exact=10,811ページ。最後に日時Indexを削除 |
 | `ch06.sql` / `ch06.log` | 50万件のquicksortとexternal merge。内容・重複・順序の一致 |

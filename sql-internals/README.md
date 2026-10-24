@@ -177,37 +177,16 @@ LIMIT 20;
 
 ## 第8章：JOIN
 
-### 読書記録の実験を準備する
-
-途中から始める場合も、次を実行してください。第5章の日時Indexを外し、読書記録50万件の結合で使うIndexを用意します。作業用メモリも4MBに戻します。
-
-```sql
-SET work_mem = '4MB';
-DROP INDEX IF EXISTS reading_records_finished_at_idx;
-CREATE INDEX IF NOT EXISTS reading_records_order_idx
-ON reading_records (finished_at DESC, book_id ASC);
-ANALYZE reading_records;
-```
-
 ### 本3冊と読書記録4件で手順を追う
 
-本3冊と読書記録4件を、一時テーブルに入れます。やり直す場合は、新しいpsql接続で共通設定を実行してから始めてください。本物の`books`・`reading_records`と名前が重ならないように、`books_sample`・`records_sample`とします。`ANALYZE`で統計情報を更新しておきます。
+本3冊と読書記録4件は、初期化時に`public.books_sample`・`public.join_records_sample`へ入っています。以前から使っているDBへ追加する場合や、データを入れ直す場合は、[小さな例の初期化](../README.md#small-samples)を実行してください。
 
-```sql
-CREATE TEMP TABLE books_sample (id int PRIMARY KEY, title text);
-CREATE TEMP TABLE records_sample (book_id int);
-INSERT INTO books_sample VALUES (1, '星'), (2, '海'), (4, '森');
-INSERT INTO records_sample VALUES (2), (1), (2), (4);
-ANALYZE books_sample;
-ANALYZE records_sample;
-```
-
-結合のSQLは次のとおりです。
+本文の`records_sample`にあたるのが、この環境の`public.join_records_sample`です。まず、結合のSQLを実行します。`public.`を付けると、以前の接続で同じ名前の一時テーブルを作っていても、準備済みの通常テーブルを使えます。
 
 ```sql
 SELECT r.book_id, b.title
-FROM records_sample AS r
-JOIN books_sample AS b ON b.id = r.book_id;
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
 ```
 
 ```text
@@ -222,7 +201,18 @@ JOIN books_sample AS b ON b.id = r.book_id;
 
 本の表8.2と同じ4件が返ります。本2の「海」も2回出ています。`ORDER BY`を指定していないので、表示順は変わることがあります。
 
-このSQLに`EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)`を付けて、計画を見ます。`COSTS OFF`以降は、見積もりや時間の表示を省いて、件数と繰り返しの回数だけが見えるようにする指定です。
+続いて、設定を切り替えずに選ばれる計画を見ます。
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+```
+
+### 補足：結合方法を指定して比較する
+
+本文と同じように件数と繰り返し回数に表示を絞るには、`EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)`を使います。`COSTS OFF`以降は、見積もりや時間などの表示を省く指定です。
 
 3つの方法を順に観察するために、`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使います。`SET LOCAL`で変えた設定は、`ROLLBACK`で元に戻ります。
 
@@ -235,8 +225,8 @@ SET LOCAL enable_hashjoin = off;
 SET LOCAL enable_mergejoin = off;
 EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
 SELECT r.book_id, b.title
-FROM records_sample AS r
-JOIN books_sample AS b ON b.id = r.book_id;
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
 ROLLBACK;
 ```
 
@@ -260,7 +250,17 @@ SET LOCAL enable_hashjoin = off;
 
 ### 読書記録50万件で3つの結合を比べる
 
-この章の冒頭で日時Indexを作り、`work_mem`を4MBにした状態を使います。上の`BEGIN`〜`ROLLBACK`の枠で、EXPLAINとSELECTを次のSQLに置き換え、同じ3通りの設定で実行します。
+途中から始める場合も、次を実行してください。第5章の日時Indexを外し、読書記録50万件の結合で使うIndexを用意します。作業用メモリも4MBに戻します。
+
+```sql
+SET work_mem = '4MB';
+DROP INDEX IF EXISTS reading_records_finished_at_idx;
+CREATE INDEX IF NOT EXISTS reading_records_order_idx
+ON reading_records (finished_at DESC, book_id ASC);
+ANALYZE reading_records;
+```
+
+上の`BEGIN`〜`ROLLBACK`の枠で、EXPLAINとSELECTを次のSQLに置き換え、同じ3通りの設定で実行します。
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
@@ -273,7 +273,7 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 3つとも、結合が返す実際の件数は50万件です。Hash Joinでメモリを増やす比較は、その実験の`BEGIN`のあとに`SET LOCAL work_mem = '64MB';`を追加します。元のSQLと設定は[測定SQL](verification/reading-records/ch08.sql)にもあります。
 
-小さな例のテーブルは、この接続を閉じると消えます。同じ接続で次章へ進む場合は、次章の準備で`records_sample`を作り直します。
+小さな例のテーブルは、接続を閉じても残ります。第9章では別の集計用テーブルを使うので、この章のデータはそのままにして進めます。
 
 <a id="chapter-09"></a>
 
@@ -281,33 +281,28 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 途中から始める場合も、共通設定で`work_mem`を4MBにしてから進めます。
 
-読書記録5件を、一時テーブルに入れます。本物の`reading_records`と名前が重ならないように、第8章と同じ`records_sample`とします。第8章のSQLを同じ接続で試したあとなら、4件の`records_sample`が残っているので、先に削除してから作り直します。残っていなければ、削除するテーブルがないという通知が出るだけです。`ANALYZE`で統計情報を更新しておきます。
-
-```sql
-DROP TABLE IF EXISTS records_sample;
-CREATE TEMP TABLE records_sample (book_id int);
-INSERT INTO records_sample VALUES (2), (1), (2), (4), (2);
-ANALYZE records_sample;
-```
+読書記録5件は、初期化時に`public.aggregate_records_sample`へ入っています。本文の`records_sample`を、この名前に読み替えます。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
 
 集計のSQLは次のとおりです。
 
 ```sql
 SELECT book_id, count(*) AS read_count
-FROM records_sample
+FROM public.aggregate_records_sample
 GROUP BY book_id;
 ```
 
 結果は本の表9.2と同じ3件です。`ORDER BY`を付けていないので、返ってくる順は決まっていません。
 
-このSQLに`EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)`を付けて、計画を見ます。
+まず、設定を切り替えずに選ばれる計画を見ます。
 
 ```sql
-EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+EXPLAIN (ANALYZE, BUFFERS)
 SELECT book_id, count(*) AS read_count
-FROM records_sample
+FROM public.aggregate_records_sample
 GROUP BY book_id;
 ```
+
+### 補足：集計方法を指定して比較する
 
 `GroupAggregate`を観察するには、`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使います。
 
@@ -316,7 +311,7 @@ BEGIN;
 SET LOCAL enable_hashagg = off;
 EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
 SELECT book_id, count(*) AS read_count
-FROM records_sample
+FROM public.aggregate_records_sample
 GROUP BY book_id;
 ROLLBACK;
 ```
@@ -325,11 +320,7 @@ ROLLBACK;
 
 実データ200万件の比較では、本の`reading_records`を集計するSQLに`EXPLAIN (ANALYZE, BUFFERS)`を付け、通常の設定と`enable_hashagg = off`で実行します。後者は上と同じ`BEGIN`〜`ROLLBACK`の中で行います。どちらの集計方法でもグループ数が736,097件となり、各本の件数も一致することは[測定SQLとログ](verification/reading-records/README.md)で確認できます。
 
-確認が済んだら、一時テーブルを削除します。
-
-```sql
-DROP TABLE records_sample;
-```
+集計用テーブルも、次回そのまま使えます。データを変えた場合は、[小さな例の初期化](../README.md#small-samples)で入れ直せます。
 
 <a id="chapter-10"></a>
 
@@ -372,15 +363,12 @@ DROP TABLE cats;
 
 ### 5件の集計のcost
 
-この集計だけは、`cats`の実験とは別の接続で行ってください。第9章と同じ5件を用意します。
+第9章で使った`public.aggregate_records_sample`を、そのまま使います。テーブルを作り直したり、別の接続を開いたりする準備は不要です。
 
 ```sql
-CREATE TEMP TABLE records_sample (book_id int);
-INSERT INTO records_sample VALUES (2), (1), (2), (4), (2);
-ANALYZE records_sample;
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM records_sample GROUP BY book_id;
+FROM public.aggregate_records_sample GROUP BY book_id;
 ```
 
 次にハッシュによる集計を無効にして、もう一方の計画を確認します。
@@ -390,9 +378,8 @@ BEGIN;
 SET LOCAL enable_hashagg = off;
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM records_sample GROUP BY book_id;
+FROM public.aggregate_records_sample GROUP BY book_id;
 ROLLBACK;
-DROP TABLE records_sample;
 ```
 
 ### 第9章のグループ数の見積もり
