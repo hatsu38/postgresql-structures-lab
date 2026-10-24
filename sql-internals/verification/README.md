@@ -27,7 +27,8 @@ PostgreSQLのバージョンと設定は各フォルダのREADMEまたはログ�
 | 第8〜10章 | [SQL](small-samples/compare.sql)・[ログ](small-samples/compare.log)・[説明](small-samples/README.md) | 同じ通常テーブルで3種類のJOINと2種類の集計を比較。SUM・AVG・NULLの扱いと集計のcostも確認 |
 | 第9章 | [SQL](reading-records/ch09.sql)・[ログ](reading-records/ch09.log) | HashAggregateとGroupAggregateの結果を照合 |
 | 第10章 | [SQL](reading-records/ch10.sql)・[ログ](reading-records/ch10.log) | 読書記録200万件の集計のn_distinctと推定件数 |
-| 第10章 | [SQL・ログ](ch10/cats-20261018) | 猫の血液型のテーブル `cats` の統計・cost・統計の更新 |
+| 第10章 | [SQL](cats-sample/observe.sql)・[ログ](cats-sample/observe.log)・[説明](cats-sample/README.md) | 準備済みの猫1万匹で、A型・B型の検索とUPDATE・ANALYZE前後の統計を確認。検索方法を切り替えるSETなしで観察 |
+| 第10章 | [SQL](cats-sample/compare.sql)・[ログ](cats-sample/compare.log) | 猫のIndexのページ数と並び具合、選ばれなかったScanのcost、ヒストグラムによる範囲検索の見積もり |
 | 第10章 | [SQL・ログ](ch10/analyze-sample-20261022) | `ANALYZE` が統計に使うレコードの件数（読書記録200万件では全ページを読み、標本は30,000件。PostgreSQL 18.3、手元の一時クラスタ） |
 | 第11章 | [SQL・ログ](ch11/two-sessions-rc-20261019) | 2つの接続の実験（Read Committed）と、実行中の SELECT が元のレコードを残す実験 |
 | 第11章 | [SQL・ログ](ch11/xmin-xmax-20261020) | レコードに付いたトランザクションの番号（`xmin`・`xmax`） |

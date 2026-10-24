@@ -1,6 +1,6 @@
 # 第11章：猫の血液型テーブル cats の UPDATE・VACUUM 前後のページ数の実測記録
 
-2026-10-19に実施。第10章の実験（`ch10-cats-20261018`）は `BEGIN`〜`ROLLBACK` の中で UPDATE しており、VACUUM もページ数の再確認もない。第11章の「第10章でページが64から99に増えた理由」の節で使う数値を取るため、`autocommit`（`COMMIT` あり）で同じ更新をして、VACUUM の前後でページ数と VACUUM の出力を記録した。
+第11章の「第10章でページが64から99に増えた理由」の節で使う、UPDATE・VACUUM前後のページ数とVACUUMの全出力です。第10章の検索・統計の更新は[猫の実験](../../cats-sample/README.md)で確認できます。
 
 ## 環境
 
@@ -34,7 +34,7 @@ VACUUM VERBOSE の出力は stderr に出るので `2>&1` が必要。
 | VACUUM 前の n_live_tup / n_dead_tup（observe.log） | 10000 / 0 |
 | VACUUM 後の n_live_tup / n_dead_tup（observe.log） | 10000 / 0 |
 
-第10章の `BEGIN`〜`ROLLBACK` での測定（UPDATE 後のページ数 99）と、COMMIT ありの測定（UPDATE 後のページ数 99）は同じ値になった。UPDATE は旧版を消さず新しい版を追加するので、ROLLBACK するか COMMIT するかに関わらず、UPDATE の直後には8,000件分の版が増えてページが64から99になる。違いが出るのは VACUUM の後で、COMMIT して旧版が不要になっていれば VACUUM が 8000 件を removed として片付ける（ROLLBACK した場合は、新しい版のほうが不要になる）。
+UPDATEは元のレコードを残して新しいレコードを作るため、更新直後にはページ数が64から99へ増えます。更新をCOMMITし、元のレコードが不要になっていれば、VACUUMは8,000件を片付けられます。
 
 VACUUM はページ数を減らさなかった（pages: 0 removed、99 remain）。片付けた領域は空き領域として残り、2回目の UPDATE ではその領域が再利用されてページ数は99のまま増えなかった。
 

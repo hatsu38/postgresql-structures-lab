@@ -38,6 +38,7 @@ docker compose exec -T db psql -X -v ON_ERROR_STOP=1 -U postgres -d reading_map 
 | `books_sample` | 星・海・森の3冊 | `id`の主キーIndexあり |
 | `join_records_sample` | 第8章のJOIN用の読書記録4件 | Indexなし |
 | `aggregate_records_sample` | 第9章の集計用の読書記録5件 | Indexなし |
+| `cats` | 第10・11章の猫1万匹（A型9,000件・B型1,000件） | `blood_type`のIndex・統計あり、自動バキューム停止 |
 
 読書記録は2026年8月24日から9月20日までの4週間に分かれ、各週に50万件ずつあります。よく読まれる本に記録が偏るデータで、日時は200万件すべて異なります。乱数は使わないので、作り直しても同じデータになります。
 
@@ -52,6 +53,20 @@ docker compose exec -T db psql -X -v ON_ERROR_STOP=1 -U postgres -d reading_map 
 ```sh
 docker compose exec -T db psql -X -1 -v ON_ERROR_STOP=1 -U postgres -d reading_map -f /lab/sql/samples.sql
 ```
+
+<a id="cats-sample"></a>
+
+### 猫の実験データを用意する
+
+猫の血液型を入れた`public.cats`も、初期化で用意されます。通常のテーブルなので、接続し直しても使えます。A型・B型の検索から始め、統計の確認、血液型の更新、`ANALYZE`による統計の更新を試せます。
+
+すでに初期化済みのDBへ追加する場合や、猫の実験をやり直す場合は、次を実行します。`cats`とそのIndex・統計を作り直し、A型9,000件・B型1,000件へ戻します。ほかの実験用テーブルはそのまま残ります。
+
+```sh
+docker compose exec -T db psql -X -1 -v ON_ERROR_STOP=1 -U postgres -d reading_map -f /lab/sql/cats.sql
+```
+
+測定中に古いレコードが片付いたり、統計が自動更新されたりしないよう、`cats`だけ自動バキュームを止めています。第11章の猫の実験を始めるときも、このコマンドで初期状態へ戻してください。
 
 ## psqlで本のSQLを試す
 
@@ -163,5 +178,5 @@ docker compose exec -T db ls /lab/sql/01
 | --- | --- |
 | [sql-internals/README.md](sql-internals/README.md) | この本の章ごとの準備・実行・後片付け |
 | [sql-internals/verification/](sql-internals/verification/README.md) | この本の測定SQLと採取済みログ |
-| `sql/01/`・`sql/samples.sql`・`sql/reset.sql` | 共通データと小さな例の初期化・初期状態の確認・リセット |
+| `sql/01/`・`sql/samples.sql`・`sql/cats.sql`・`sql/reset.sql` | 共通データと小さな例・猫の初期化、初期状態の確認・リセット |
 | `sql/00/`・`sql/02/`・`sql/12/`・[results/](results/README.md) | 旧構成の実験SQLとログ。現在の本の章番号とは対応しません |

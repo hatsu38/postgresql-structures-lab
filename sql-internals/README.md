@@ -334,28 +334,27 @@ ROLLBACK;
 
 ## 第10章：プランナと統計情報
 
-### 猫の名簿を用意する
+### 猫の初期データから始める
 
-共通設定を使い、次のSQLを実行します。`generate_series`で1〜10,000の番号を作り、9,000までをA型、残りをB型にしています。
+猫1万匹の`cats`は、初期化時に用意されています。`id`は1〜10,000の番号で、血液型はA型9,000件・B型1,000件です。すでに使っているDBへ追加する場合や、更新前の状態へ戻す場合は、先に[猫の初期化](../README.md#cats-sample)を実行してください。血液型のIndexと統計も準備済みなので、共通設定を使い、まずは検索のSQLを実行します。
 
 ```sql
-CREATE TABLE cats WITH (autovacuum_enabled = false) AS
-SELECT n AS id,
-       CASE WHEN n <= 9000 THEN 'A' ELSE 'B' END AS blood_type
-FROM generate_series(1, 10000) AS n;
-CREATE INDEX cats_blood_type_idx ON cats(blood_type);
-ANALYZE cats;
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM cats WHERE blood_type = 'A';
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM cats WHERE blood_type = 'B';
 ```
 
-この準備は`BEGIN`の外で行います。本の補足にある`BEGIN`〜`ROLLBACK`をそのまま実行しても、`cats`が消えないようにするためです。測定中に統計が自動更新されないよう、この実験用テーブルだけ自動バキュームを止めています。
+初期状態では、A型にSeq Scan、B型にIndex Scanが選ばれます。この2つを観察するために、`SET LOCAL`で検索方法を切り替える操作は不要です。
 
-本の順にA型・B型の検索、統計とcostの確認、`UPDATE`、`ANALYZE`を実行します。更新前はA型9,000件・B型1,000件、更新後はA型1,000件・B型9,000件です。やり直すときは`DROP TABLE cats;`を実行し、この準備から作り直します。
+続いて、本の順に統計とcostの確認、`UPDATE`、`ANALYZE`を実行します。更新後はA型1,000件・B型9,000件です。統計が古い状態を観察できるように、`cats`だけ自動バキュームを止めています。検索・更新・統計の全出力は、[猫の確認ログ](verification/cats-sample/README.md)にあります。
 
 ### 選ばれなかったScanのcostを確認する
 
 `UPDATE`の前に、本の補足の`BEGIN`から`ROLLBACK`までを実行します。`ROLLBACK`で設定だけを戻し、準備済みの`cats`は残ります。
 
-### 件数を確認して実験を終える
+### 件数を確認する
 
 更新前・UPDATE後・ANALYZE後に、次のSQLで実際の件数を確認できます。統計の割合は本のSQLで見られ、`n_distinct`も同じSQLの列に足せば表示されます。
 
@@ -363,11 +362,7 @@ ANALYZE cats;
 SELECT blood_type, count(*) FROM cats GROUP BY blood_type ORDER BY blood_type;
 ```
 
-本文と補足の確認が済んだら、実験用テーブルを削除します。Indexも一緒に消えます。
-
-```sql
-DROP TABLE cats;
-```
+確認が済んでも、通常テーブルの`cats`はそのまま残しておけます。やり直すときは、[猫の初期化](../README.md#cats-sample)でデータと統計を戻します。
 
 ### 5件の集計のcost
 
@@ -403,11 +398,7 @@ SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
 
 ### 範囲検索の見積もり
 
-本の補足「範囲検索ではどう見積もるか」は、本文の実験を終えたあとに別の接続で試します。「猫の名簿を用意する」のSQLを実行して、更新前の`cats`を作ってから、補足のSQLを実行してください。確認が済んだら、テーブルを削除します。
-
-```sql
-DROP TABLE cats;
-```
+本の補足「範囲検索ではどう見積もるか」は、[猫の初期化](../README.md#cats-sample)で更新前の状態へ戻してから試します。本文で使う血液型の割合やページ数も初期状態へ戻るので、本文の途中で実行せず、本文の確認が済んでから行ってください。
 
 <a id="chapter-11"></a>
 
@@ -510,7 +501,7 @@ DROP TABLE mvcc_books;
 
 ### 猫の更新とVACUUM前後のページ数を見る
 
-第10章の`cats`を削除してから、第10章の「猫の名簿を用意する」をもう一度実行します。ほかの接続でトランザクションが開いていない状態で、次を実行してください。
+[猫の初期化](../README.md#cats-sample)で、A型9,000件・B型1,000件の状態へ戻します。ほかの接続でトランザクションが開いていない状態で、次を実行してください。
 
 ```sql
 SELECT pg_relation_size('cats') / current_setting('block_size')::int AS pages;
@@ -520,7 +511,6 @@ VACUUM (VERBOSE) cats;
 SELECT pg_relation_size('cats') / current_setting('block_size')::int AS pages;
 UPDATE cats SET blood_type = 'A' WHERE id <= 8000;
 SELECT pg_relation_size('cats') / current_setting('block_size')::int AS pages;
-DROP TABLE cats;
 ```
 
 ページ数の増加、VACUUM後にも残るページ、次の更新での領域の再利用を比べます。本の64→99→99→99は測定時の値です。テーブルの作り方や途中の操作で変わるため、[測定SQLと全出力](verification/ch11/cats-vacuum-20261019/README.md)も参照してください。

@@ -1,0 +1,158 @@
+-- 第10章の補足：準備済みのcatsで、Scanのcostと範囲検索の見積もりを見る。
+-- sql/cats.sqlで初期状態へ戻してから実行する。操作は最後にROLLBACKする。
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SHOW work_mem;
+ work_mem 
+----------
+ 4MB
+(1 row)
+
+SHOW default_statistics_target;
+ default_statistics_target 
+---------------------------
+ 100
+(1 row)
+
+SHOW seq_page_cost;
+ seq_page_cost 
+---------------
+ 1
+(1 row)
+
+SHOW random_page_cost;
+ random_page_cost 
+------------------
+ 4
+(1 row)
+
+SHOW cpu_tuple_cost;
+ cpu_tuple_cost 
+----------------
+ 0.01
+(1 row)
+
+SHOW cpu_index_tuple_cost;
+ cpu_index_tuple_cost 
+----------------------
+ 0.005
+(1 row)
+
+SHOW cpu_operator_cost;
+ cpu_operator_cost 
+-------------------
+ 0.0025
+(1 row)
+
+BEGIN;
+BEGIN
+\echo === index-and-cost ===
+=== index-and-cost ===
+SELECT relname, relpages, reltuples
+FROM pg_class
+WHERE oid IN ('public.cats'::regclass, 'public.cats_blood_type_idx'::regclass)
+ORDER BY relname;
+       relname       | relpages | reltuples 
+---------------------+----------+-----------
+ cats                |       64 |     10000
+ cats_blood_type_idx |       11 |     10000
+(2 rows)
+
+SELECT correlation FROM pg_stats
+WHERE schemaname = 'public' AND tablename = 'cats' AND attname = 'blood_type';
+ correlation 
+-------------
+           1
+(1 row)
+
+SELECT relpages * current_setting('seq_page_cost')::numeric AS page_cost,
+       reltuples::numeric * current_setting('cpu_tuple_cost')::numeric AS tuple_cost,
+       reltuples::numeric * current_setting('cpu_operator_cost')::numeric AS filter_cost
+FROM pg_class WHERE oid = 'public.cats'::regclass;
+ page_cost | tuple_cost | filter_cost 
+-----------+------------+-------------
+        64 |     100.00 |     25.0000
+(1 row)
+
+\echo === index-scan ===
+=== index-scan ===
+SET LOCAL enable_seqscan = off;
+SET
+SET LOCAL enable_bitmapscan = off;
+SET
+EXPLAIN SELECT * FROM public.cats WHERE blood_type = 'B';
+                                     QUERY PLAN                                     
+------------------------------------------------------------------------------------
+ Index Scan using cats_blood_type_idx on cats  (cost=0.29..35.78 rows=1000 width=6)
+   Index Cond: (blood_type = 'B'::text)
+(2 rows)
+
+EXPLAIN SELECT * FROM public.cats WHERE blood_type = 'A';
+                                     QUERY PLAN                                      
+-------------------------------------------------------------------------------------
+ Index Scan using cats_blood_type_idx on cats  (cost=0.29..258.79 rows=9000 width=6)
+   Index Cond: (blood_type = 'A'::text)
+(2 rows)
+
+\echo === seq-scan ===
+=== seq-scan ===
+SET LOCAL enable_seqscan = on;
+SET
+SET LOCAL enable_indexscan = off;
+SET
+EXPLAIN SELECT * FROM public.cats WHERE blood_type = 'B';
+                       QUERY PLAN                        
+---------------------------------------------------------
+ Seq Scan on cats  (cost=0.00..189.00 rows=1000 width=6)
+   Filter: (blood_type = 'B'::text)
+(2 rows)
+
+SET LOCAL enable_indexscan = on;
+SET
+SET LOCAL enable_bitmapscan = on;
+SET
+\echo === histogram ===
+=== histogram ===
+ALTER TABLE public.cats ALTER COLUMN id SET STATISTICS 10;
+ALTER TABLE
+ANALYZE public.cats;
+ANALYZE
+\x on
+Expanded display is on.
+SELECT n_distinct, histogram_bounds FROM pg_stats
+WHERE schemaname = 'public' AND tablename = 'cats' AND attname = 'id';
+-[ RECORD 1 ]----+-------------------------------------------------------
+n_distinct       | -1
+histogram_bounds | {1,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000}
+
+\x off
+Expanded display is off.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM public.cats WHERE id < 2500;
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Seq Scan on cats  (cost=0.00..189.00 rows=2499 width=6) (actual time=0.006..0.358 rows=2499.00 loops=1)
+   Filter: (id < 2500)
+   Rows Removed by Filter: 7501
+   Buffers: shared hit=64
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.020 ms
+ Execution Time: 0.436 ms
+(8 rows)
+
+ROLLBACK;
+ROLLBACK
