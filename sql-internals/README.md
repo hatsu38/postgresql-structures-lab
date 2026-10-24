@@ -10,6 +10,8 @@
 
 psqlでの接続方法は、READMEの「psqlで本のSQLを試す」を見てください。
 
+2026年10月24日に日時の生成式を変え、各週を50万件にそろえました。以前にデータを作った場合は、[リポジトリのREADME](../README.md)の「2026年10月24日より前にデータを作った場合」を確認してください。新しいデータでは、9月14日から21日より前までが50万件、9月20日の1日分が71,428件です。測定SQLと全出力は[週50万件での測定記録](verification/weekly-500k-20261024/README.md)にあります。
+
 ## 共通設定
 
 psqlでデータベースに接続したら、最初に次の設定を実行します。どれもセッション単位の設定なので、psqlを起動し直したときや接続し直したときは、そのたびに実行してください。
@@ -90,7 +92,7 @@ ORDER BY finished_at DESC
 LIMIT 20;
 ```
 
-`LIMIT 20`を外して実行すると、全件ソートと比較できます。実行結果の全体は[測定ログ](https://github.com/hatsu38/zenn/blob/main/_drafts/postgresql-sql-internals/verification/ch06-20261004/observe.log)で確認できます。
+`LIMIT 20`を外して実行すると、全件ソートと比較できます。実行結果の全体は[測定ログ](verification/weekly-500k-20261024/ch07.log)で確認できます。
 
 ### 第8章の準備
 
@@ -294,7 +296,7 @@ DROP TABLE records_sample;
 
 ### 第9章のグループ数の見積もり
 
-読書記録200万件の`reading_records`を使います。`ANALYZE`が調べる一部のレコードは毎回変わるので、手元の推定が本の77,812になるとは限りません。
+読書記録200万件の`reading_records`を使います。`ANALYZE`が調べる一部のレコードは毎回変わるので、手元の推定が本の76,011になるとは限りません。
 
 ```sql
 SELECT n_distinct FROM pg_stats

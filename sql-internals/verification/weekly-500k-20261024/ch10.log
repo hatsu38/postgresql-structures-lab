@@ -1,0 +1,31 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+ANALYZE reading_records;
+ANALYZE
+SELECT n_distinct FROM pg_stats WHERE schemaname='public' AND tablename='reading_records' AND attname='book_id';
+ n_distinct 
+------------
+      76011
+(1 row)
+
+EXPLAIN SELECT book_id, count(*) FROM reading_records GROUP BY book_id;
+                                  QUERY PLAN                                   
+-------------------------------------------------------------------------------
+ HashAggregate  (cost=40811.00..41571.11 rows=76011 width=16)
+   Group Key: book_id
+   ->  Seq Scan on reading_records  (cost=0.00..30811.00 rows=2000000 width=8)
+(3 rows)
+
+SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
+ actual_groups 
+---------------
+        736097
+(1 row)
+

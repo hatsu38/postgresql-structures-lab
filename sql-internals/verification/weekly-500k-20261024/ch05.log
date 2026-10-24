@@ -1,0 +1,34 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+CREATE INDEX reading_records_finished_at_idx ON reading_records (finished_at);
+CREATE INDEX
+ANALYZE reading_records;
+ANALYZE
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT book_id, finished_at FROM reading_records
+WHERE finished_at >= timestamp '2026-09-20' AND finished_at < timestamp '2026-09-21';
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on reading_records  (cost=1467.16..13312.42 rows=68950 width=16) (actual time=4.968..17.257 rows=71428.00 loops=1)
+   Recheck Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+   Heap Blocks: exact=10811
+   Buffers: shared hit=10813 read=196
+   ->  Bitmap Index Scan on reading_records_finished_at_idx  (cost=0.00..1449.93 rows=68950 width=0) (actual time=3.743..3.743 rows=71428.00 loops=1)
+         Index Cond: ((finished_at >= '2026-09-20 00:00:00'::timestamp without time zone) AND (finished_at < '2026-09-21 00:00:00'::timestamp without time zone))
+         Index Searches: 1
+         Buffers: shared hit=2 read=196
+ Planning:
+   Buffers: shared hit=16 read=4
+ Planning Time: 0.113 ms
+ Execution Time: 19.461 ms
+(12 rows)
+
+DROP INDEX reading_records_finished_at_idx;
+DROP INDEX

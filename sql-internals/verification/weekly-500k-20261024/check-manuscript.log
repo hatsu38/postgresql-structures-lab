@@ -1,0 +1,5 @@
+05-buffers-and-bitmap.md: 3 output lines match ch05.log
+06-sort.md: 3 output lines match ch06.log
+07-top-n-heap.md: 11 output lines match ch07.log
+JOIN / aggregate / statistics / trace / visibility / references / figures: PASS
+PASS

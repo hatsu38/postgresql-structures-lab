@@ -1,0 +1,86 @@
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SET max_parallel_workers_per_gather = 0;
+SET
+SET jit = off;
+SET
+SET work_mem = '4MB';
+SET
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+SHOW block_size;
+ block_size 
+------------
+ 8192
+(1 row)
+
+SHOW shared_buffers;
+ shared_buffers 
+----------------
+ 128MB
+(1 row)
+
+SHOW hash_mem_multiplier;
+ hash_mem_multiplier 
+---------------------
+ 2
+(1 row)
+
+SHOW default_statistics_target;
+ default_statistics_target 
+---------------------------
+ 100
+(1 row)
+
+SHOW autovacuum;
+ autovacuum 
+------------
+ off
+(1 row)
+
+SELECT datcollate, datctype FROM pg_database WHERE datname = current_database();
+ datcollate |  datctype  
+------------+------------
+ en_US.utf8 | en_US.utf8
+(1 row)
+
+SELECT count(*) AS books FROM books;
+  books  
+---------
+ 1000000
+(1 row)
+
+SELECT count(*) AS records, count(DISTINCT finished_at) AS distinct_times,
+       count(DISTINCT book_id) AS distinct_books, min(finished_at), max(finished_at)
+FROM reading_records;
+ records | distinct_times | distinct_books |         min         |         max         
+---------+----------------+----------------+---------------------+---------------------
+ 2000000 |        2000000 |         736097 | 2026-08-24 00:00:00 | 2026-09-20 23:59:58
+(1 row)
+
+SELECT date_trunc('week', finished_at) AS week_start, count(*)
+FROM reading_records GROUP BY 1 ORDER BY 1;
+     week_start      | count  
+---------------------+--------
+ 2026-08-24 00:00:00 | 500000
+ 2026-08-31 00:00:00 | 500000
+ 2026-09-07 00:00:00 | 500000
+ 2026-09-14 00:00:00 | 500000
+(4 rows)
+
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM books) <> 1000000 OR
+     (SELECT count(*) FROM reading_records) <> 2000000 OR
+     (SELECT count(DISTINCT finished_at) FROM reading_records) <> 2000000 OR
+     EXISTS (SELECT 1 FROM reading_records WHERE finished_at < timestamp '2026-08-24' OR finished_at >= timestamp '2026-09-21') OR
+     (SELECT count(*) FROM (SELECT date_trunc('week', finished_at) FROM reading_records GROUP BY 1 HAVING count(*) = 500000) w) <> 4 THEN
+    RAISE EXCEPTION '件数・期間・日時の一意性・週50万件のいずれかが不一致';
+  END IF;
+END $$;
+DO
