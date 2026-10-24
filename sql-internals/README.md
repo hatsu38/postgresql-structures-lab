@@ -210,6 +210,8 @@ FROM public.join_records_sample AS r
 JOIN public.books_sample AS b ON b.id = r.book_id;
 ```
 
+サンプルの作成から、新しい接続でSELECTとEXPLAINを実行した手元の全出力は、[確認ログ](verification/small-samples/observe.log)にあります。[再現用SQL](verification/small-samples/observe.sql)でも同じ検索を試せます。
+
 ### 補足：結合方法を指定して比較する
 
 本文と同じように件数と繰り返し回数に表示を絞るには、`EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)`を使います。`COSTS OFF`以降は、見積もりや時間などの表示を省く指定です。
@@ -301,6 +303,8 @@ SELECT book_id, count(*) AS read_count
 FROM public.aggregate_records_sample
 GROUP BY book_id;
 ```
+
+この集計も、[再現用SQL](verification/small-samples/observe.sql)と[手元の確認ログ](verification/small-samples/observe.log)に含めています。
 
 ### 補足：集計方法を指定して比較する
 

@@ -24,6 +24,7 @@ PostgreSQLのバージョンと設定は各フォルダのREADMEまたはログ�
 | 第7章 | [SQL](reading-records/ch07.sql)・[ログ](reading-records/ch07.log) | 全件ソートとLIMIT 20のtop-N heapsort |
 | 第8章 | [SQL](reading-records/ch08.sql)・[ログ](reading-records/ch08.log) | 本100万冊・読書記録200万件で3種類のJOINを比較 |
 | 第8章 | [SQL・ログ](ch08/small-20261013) | 本3冊・読書記録4件の結合計画（Nested Loop・Hash Join・Merge Join） |
+| 第8・9章 | [SQL](small-samples/observe.sql)・[ログ](small-samples/observe.log) | 星・海・森の通常テーブルを作成し、新しい接続でJOIN・集計を手動確認。計画を切り替えるSETなしでHash Joinが4件、HashAggregateが3件を返した |
 | 第9章 | [SQL](reading-records/ch09.sql)・[ログ](reading-records/ch09.log) | HashAggregateとGroupAggregateの結果を照合 |
 | 第9章 | [SQL・ログ](ch09/small-20261015) | 読書記録5件の集計計画 |
 | 第10章 | [SQL](reading-records/ch10.sql)・[ログ](reading-records/ch10.log) | 読書記録200万件の集計のn_distinctと推定件数 |
