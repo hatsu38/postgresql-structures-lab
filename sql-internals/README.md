@@ -513,7 +513,7 @@ UPDATE cats SET blood_type = 'A' WHERE id <= 8000;
 SELECT pg_relation_size('cats') / current_setting('block_size')::int AS pages;
 ```
 
-ページ数の増加、VACUUM後にも残るページ、次の更新での領域の再利用を比べます。本の64→99→99→99は測定時の値です。テーブルの作り方や途中の操作で変わるため、[測定SQLと全出力](verification/ch11/cats-vacuum-20261019/README.md)も参照してください。
+ページ数の増加、VACUUM後にも残るページ、次の更新での領域の再利用を比べます。本の64→99→99→99は測定時の値です。テーブルの作り方や途中の操作で変わるため、[測定SQLと全出力](verification/ch11/cats-vacuum/README.md)も参照してください。
 
 ### Index Only ScanのHeap Fetchesを見る
 
