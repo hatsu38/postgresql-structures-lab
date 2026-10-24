@@ -7,7 +7,7 @@ source = Path(__file__).resolve().parent
 book = Path(sys.argv[1]) if len(sys.argv) > 1 else source.parents[3] / 'books/postgresql-explain-algorithms'
 # source.parents[3] は原稿リポジトリのルート。
 parts = {
-    '05-buffers-and-bitmap.md': ('ch05.log', '各週を50万件にそろえたデータで', '## まとめ'),
+    '05-buffers-and-bitmap.md': ('ch05.log', '実行結果から、件数とページ数が分かる部分', '## まとめ'),
     '06-sort.md': ('ch06.log', '## EXPLAINで', '## まとめ'),
     '07-top-n-heap.md': ('ch07.log', '### EXPLAIN ANALYZEで', '表7.4に、'),
 }
@@ -30,7 +30,7 @@ for name, (log_name, start, end) in parts.items():
 for name in ['00-preface.md', *parts, '08-join.md', '09-aggregate.md', '10-planner-and-statistics.md']:
     text = (book / name).read_text()
     assert not re.search(r'499[,.]?99[89]|71427|71,427|27913|27,913|242\.496|137\.231|75,970|77,812', text), name
-    for ref in re.findall(r'`(sql-internals/verification/weekly-500k-20261024/[^`]+)`', text):
+    for ref in re.findall(r'`(sql-internals/verification/reading-records/[^`]+)`', text):
         assert (source / ref.rsplit('/', 1)[-1]).exists(), (name, ref)
     for image in re.findall(r'/images/postgresql-explain-algorithms/([^)]*\.png)', text):
         for suffix in ['.svg', '.mmd']:
