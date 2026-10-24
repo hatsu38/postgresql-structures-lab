@@ -32,4 +32,4 @@ docker compose exec -T db psql -X -1 -v ON_ERROR_STOP=1 -U postgres -d reading_m
 docker compose exec -T db psql -X -a -v ON_ERROR_STOP=1 -U postgres -d reading_map < sql-internals/verification/cats-sample/compare.sql
 ```
 
-VACUUMの比較は[第11章のログ](../ch11/cats-vacuum-20261019/README.md)にあります。
+VACUUMの比較は[第11章のログ](../ch11/cats-vacuum/README.md)にあります。
