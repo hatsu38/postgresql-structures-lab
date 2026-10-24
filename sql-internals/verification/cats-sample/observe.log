@@ -1,0 +1,126 @@
+-- sql/cats.sqlで用意した通常テーブルを、新しい接続から確認する。
+-- 更新を含むので、再実行する前には猫の初期化を行う。
+-- 準備と実行のコマンドは、このフォルダのREADME.mdを参照。
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+\echo === initial ===
+=== initial ===
+SELECT blood_type, count(*) FROM public.cats GROUP BY blood_type ORDER BY blood_type;
+ blood_type | count 
+------------+-------
+ A          |  9000
+ B          |  1000
+(2 rows)
+
+SELECT relpages, reltuples FROM pg_class WHERE oid = 'public.cats'::regclass;
+ relpages | reltuples 
+----------+-----------
+       64 |     10000
+(1 row)
+
+SELECT most_common_vals, most_common_freqs, n_distinct
+FROM pg_stats
+WHERE schemaname = 'public' AND tablename = 'cats' AND attname = 'blood_type';
+ most_common_vals | most_common_freqs | n_distinct 
+------------------+-------------------+------------
+ {A,B}            | {0.9,0.1}         |          2
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM public.cats WHERE blood_type = 'A';
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Seq Scan on cats  (cost=0.00..189.00 rows=9000 width=6) (actual time=0.007..0.657 rows=9000.00 loops=1)
+   Filter: (blood_type = 'A'::text)
+   Rows Removed by Filter: 1000
+   Buffers: shared hit=64
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.039 ms
+ Execution Time: 0.926 ms
+(8 rows)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM public.cats WHERE blood_type = 'B';
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using cats_blood_type_idx on cats  (cost=0.29..35.78 rows=1000 width=6) (actual time=0.027..0.175 rows=1000.00 loops=1)
+   Index Cond: (blood_type = 'B'::text)
+   Index Searches: 1
+   Buffers: shared hit=6 read=3
+ Planning Time: 0.016 ms
+ Execution Time: 0.211 ms
+(6 rows)
+
+\echo === update-before-analyze ===
+=== update-before-analyze ===
+UPDATE public.cats SET blood_type = 'B' WHERE id <= 8000;
+UPDATE 8000
+SELECT blood_type, count(*) FROM public.cats GROUP BY blood_type ORDER BY blood_type;
+ blood_type | count 
+------------+-------
+ A          |  1000
+ B          |  9000
+(2 rows)
+
+SELECT most_common_vals, most_common_freqs
+FROM pg_stats
+WHERE schemaname = 'public' AND tablename = 'cats' AND attname = 'blood_type';
+ most_common_vals | most_common_freqs 
+------------------+-------------------
+ {A,B}            | {0.9,0.1}
+(1 row)
+
+SELECT relpages AS stats_pages, reltuples AS stats_rows,
+       pg_relation_size('public.cats') / current_setting('block_size')::int AS current_pages
+FROM pg_class WHERE oid = 'public.cats'::regclass;
+ stats_pages | stats_rows | current_pages 
+-------------+------------+---------------
+          64 |      10000 |            99
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM public.cats WHERE blood_type = 'B';
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using cats_blood_type_idx on cats  (cost=0.29..48.36 rows=1547 width=6) (actual time=0.007..0.647 rows=9000.00 loops=1)
+   Index Cond: (blood_type = 'B'::text)
+   Index Searches: 1
+   Buffers: shared hit=51
+ Planning Time: 0.021 ms
+ Execution Time: 0.916 ms
+(6 rows)
+
+\echo === after-analyze ===
+=== after-analyze ===
+ANALYZE public.cats;
+ANALYZE
+SELECT most_common_vals, most_common_freqs
+FROM pg_stats
+WHERE schemaname = 'public' AND tablename = 'cats' AND attname = 'blood_type';
+ most_common_vals | most_common_freqs 
+------------------+-------------------
+ {B,A}            | {0.9,0.1}
+(1 row)
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM public.cats WHERE blood_type = 'B';
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Seq Scan on cats  (cost=0.00..224.00 rows=9000 width=6) (actual time=0.054..0.623 rows=9000.00 loops=1)
+   Filter: (blood_type = 'B'::text)
+   Rows Removed by Filter: 1000
+   Buffers: shared hit=99
+ Planning:
+   Buffers: shared hit=17
+ Planning Time: 0.039 ms
+ Execution Time: 0.888 ms
+(8 rows)
+

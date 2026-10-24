@@ -24,6 +24,7 @@ FROM (SELECT n, n * 0.6180339887498949::float8
 ANALYZE books;
 ANALYZE reading_records;
 \ir ../samples.sql
+\ir ../cats.sql
 SELECT count(*) FROM books;
 SELECT count(*) FROM reading_records;
 COMMIT;
