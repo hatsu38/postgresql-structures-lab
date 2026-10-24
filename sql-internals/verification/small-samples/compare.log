@@ -1,0 +1,371 @@
+-- 第8〜10章：準備済みの通常テーブルで、結合・集計の方法を比較する。
+-- 準備と実行のコマンドは、このフォルダのREADME.mdを参照。
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+SHOW work_mem;
+ work_mem 
+----------
+ 4MB
+(1 row)
+
+SHOW cpu_tuple_cost;
+ cpu_tuple_cost 
+----------------
+ 0.01
+(1 row)
+
+SHOW cpu_operator_cost;
+ cpu_operator_cost 
+-------------------
+ 0.0025
+(1 row)
+
+SHOW seq_page_cost;
+ seq_page_cost 
+---------------
+ 1
+(1 row)
+
+\echo === join-result ===
+=== join-result ===
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+ book_id | title 
+---------+-------
+       2 | 海
+       1 | 星
+       2 | 海
+       4 | 森
+(4 rows)
+
+\echo === join-default ===
+=== join-default ===
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                             QUERY PLAN                             
+--------------------------------------------------------------------
+ Hash Join (actual rows=4.00 loops=1)
+   Hash Cond: (r.book_id = b.id)
+   ->  Seq Scan on join_records_sample r (actual rows=4.00 loops=1)
+   ->  Hash (actual rows=3.00 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 9kB
+         ->  Seq Scan on books_sample b (actual rows=3.00 loops=1)
+(6 rows)
+
+\echo === nestloop ===
+=== nestloop ===
+BEGIN;
+BEGIN
+SET LOCAL enable_memoize = off;
+SET
+SET LOCAL enable_hashjoin = off;
+SET
+SET LOCAL enable_mergejoin = off;
+SET
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                             QUERY PLAN                             
+--------------------------------------------------------------------
+ Nested Loop (actual rows=4.00 loops=1)
+   Join Filter: (b.id = r.book_id)
+   Rows Removed by Join Filter: 4
+   ->  Seq Scan on join_records_sample r (actual rows=4.00 loops=1)
+   ->  Materialize (actual rows=2.00 loops=4)
+         Storage: Memory  Maximum Storage: 17kB
+         ->  Seq Scan on books_sample b (actual rows=3.00 loops=1)
+(7 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === nestloop-index ===
+=== nestloop-index ===
+BEGIN;
+BEGIN
+SET LOCAL enable_memoize = off;
+SET
+SET LOCAL enable_hashjoin = off;
+SET
+SET LOCAL enable_mergejoin = off;
+SET
+SET LOCAL enable_seqscan = off;
+SET
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                                      QUERY PLAN                                       
+---------------------------------------------------------------------------------------
+ Nested Loop (actual rows=4.00 loops=1)
+   ->  Seq Scan on join_records_sample r (actual rows=4.00 loops=1)
+         Disabled: true
+   ->  Index Scan using books_sample_pkey on books_sample b (actual rows=1.00 loops=4)
+         Index Cond: (id = r.book_id)
+         Index Searches: 4
+(6 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === hashjoin ===
+=== hashjoin ===
+BEGIN;
+BEGIN
+SET LOCAL enable_memoize = off;
+SET
+SET LOCAL enable_nestloop = off;
+SET
+SET LOCAL enable_mergejoin = off;
+SET
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                             QUERY PLAN                             
+--------------------------------------------------------------------
+ Hash Join (actual rows=4.00 loops=1)
+   Hash Cond: (r.book_id = b.id)
+   ->  Seq Scan on join_records_sample r (actual rows=4.00 loops=1)
+   ->  Hash (actual rows=3.00 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 9kB
+         ->  Seq Scan on books_sample b (actual rows=3.00 loops=1)
+(6 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === mergejoin ===
+=== mergejoin ===
+BEGIN;
+BEGIN
+SET LOCAL enable_memoize = off;
+SET
+SET LOCAL enable_nestloop = off;
+SET
+SET LOCAL enable_hashjoin = off;
+SET
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                                QUERY PLAN                                
+--------------------------------------------------------------------------
+ Merge Join (actual rows=4.00 loops=1)
+   Merge Cond: (r.book_id = b.id)
+   ->  Sort (actual rows=4.00 loops=1)
+         Sort Key: r.book_id
+         Sort Method: quicksort  Memory: 25kB
+         ->  Seq Scan on join_records_sample r (actual rows=4.00 loops=1)
+   ->  Sort (actual rows=3.00 loops=1)
+         Sort Key: b.id
+         Sort Method: quicksort  Memory: 25kB
+         ->  Seq Scan on books_sample b (actual rows=3.00 loops=1)
+(10 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === mergejoin-verbose ===
+=== mergejoin-verbose ===
+BEGIN;
+BEGIN
+SET LOCAL enable_memoize = off;
+SET
+SET LOCAL enable_nestloop = off;
+SET
+SET LOCAL enable_hashjoin = off;
+SET
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF, VERBOSE)
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                                   QUERY PLAN                                    
+---------------------------------------------------------------------------------
+ Merge Join (actual rows=4.00 loops=1)
+   Output: r.book_id, b.title
+   Inner Unique: true
+   Merge Cond: (r.book_id = b.id)
+   ->  Sort (actual rows=4.00 loops=1)
+         Output: r.book_id
+         Sort Key: r.book_id
+         Sort Method: quicksort  Memory: 25kB
+         ->  Seq Scan on public.join_records_sample r (actual rows=4.00 loops=1)
+               Output: r.book_id
+   ->  Sort (actual rows=3.00 loops=1)
+         Output: b.title, b.id
+         Sort Key: b.id
+         Sort Method: quicksort  Memory: 25kB
+         ->  Seq Scan on public.books_sample b (actual rows=3.00 loops=1)
+               Output: b.title, b.id
+(16 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === aggregate-result ===
+=== aggregate-result ===
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id
+ORDER BY book_id;
+ book_id | read_count 
+---------+------------
+       1 |          1
+       2 |          3
+       4 |          1
+(3 rows)
+
+\echo === aggregate-default ===
+=== aggregate-default ===
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id;
+                              QUERY PLAN                               
+-----------------------------------------------------------------------
+ HashAggregate (actual rows=3.00 loops=1)
+   Group Key: book_id
+   Batches: 1  Memory Usage: 32kB
+   ->  Seq Scan on aggregate_records_sample (actual rows=5.00 loops=1)
+(4 rows)
+
+\echo === groupagg ===
+=== groupagg ===
+BEGIN;
+BEGIN
+SET LOCAL enable_hashagg = off;
+SET
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id;
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ GroupAggregate (actual rows=3.00 loops=1)
+   Group Key: book_id
+   ->  Sort (actual rows=5.00 loops=1)
+         Sort Key: book_id
+         Sort Method: quicksort  Memory: 25kB
+         ->  Seq Scan on aggregate_records_sample (actual rows=5.00 loops=1)
+(6 rows)
+
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id
+ORDER BY book_id;
+ book_id | read_count 
+---------+------------
+       1 |          1
+       2 |          3
+       4 |          1
+(3 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === aggregate-stats ===
+=== aggregate-stats ===
+SELECT relpages, reltuples
+FROM pg_class
+WHERE oid = 'public.aggregate_records_sample'::regclass;
+ relpages | reltuples 
+----------+-----------
+        1 |         5
+(1 row)
+
+SELECT n_distinct, most_common_vals, most_common_freqs
+FROM pg_stats
+WHERE schemaname = 'public'
+  AND tablename = 'aggregate_records_sample'
+  AND attname = 'book_id';
+ n_distinct | most_common_vals | most_common_freqs 
+------------+------------------+-------------------
+       -0.6 | {2}              | {0.6}
+(1 row)
+
+\echo === aggregate-default-costs ===
+=== aggregate-default-costs ===
+EXPLAIN
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id;
+                                  QUERY PLAN                                  
+------------------------------------------------------------------------------
+ HashAggregate  (cost=1.07..1.10 rows=3 width=12)
+   Group Key: book_id
+   ->  Seq Scan on aggregate_records_sample  (cost=0.00..1.05 rows=5 width=4)
+(3 rows)
+
+\echo === groupagg-costs ===
+=== groupagg-costs ===
+BEGIN;
+BEGIN
+SET LOCAL enable_hashagg = off;
+SET
+EXPLAIN
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id;
+                                     QUERY PLAN                                     
+------------------------------------------------------------------------------------
+ GroupAggregate  (cost=1.11..1.18 rows=3 width=12)
+   Group Key: book_id
+   ->  Sort  (cost=1.11..1.12 rows=5 width=4)
+         Sort Key: book_id
+         ->  Seq Scan on aggregate_records_sample  (cost=0.00..1.05 rows=5 width=4)
+(5 rows)
+
+ROLLBACK;
+ROLLBACK
+\echo === sum-avg ===
+=== sum-avg ===
+SELECT count(*) AS records,
+       sum(minutes) AS total_minutes,
+       avg(minutes) AS average_minutes
+FROM (VALUES (10), (30), (50)) AS sessions(minutes);
+ records | total_minutes |   average_minutes   
+---------+---------------+---------------------
+       3 |            90 | 30.0000000000000000
+(1 row)
+
+\echo === sum-avg-null ===
+=== sum-avg-null ===
+SELECT count(*) AS records,
+       count(minutes) AS measured_records,
+       sum(minutes) AS total_minutes,
+       avg(minutes) AS average_minutes
+FROM (VALUES (10), (30), (50), (NULL::integer)) AS sessions(minutes);
+ records | measured_records | total_minutes |   average_minutes   
+---------+------------------+---------------+---------------------
+       4 |                3 |            90 | 30.0000000000000000
+(1 row)
+
+SELECT count(*) AS records,
+       count(minutes) AS measured_records,
+       sum(minutes) AS total_minutes,
+       avg(minutes) AS average_minutes
+FROM (VALUES (NULL::integer)) AS sessions(minutes);
+ records | measured_records | total_minutes | average_minutes 
+---------+------------------+---------------+-----------------
+       1 |                0 |               |                
+(1 row)
+
+\echo === values-example ===
+=== values-example ===
+SELECT book_id, count(*) AS read_count
+FROM (VALUES (2), (1), (2), (4), (2)) AS records(book_id)
+GROUP BY book_id
+ORDER BY book_id;
+ book_id | read_count 
+---------+------------
+       1 |          1
+       2 |          3
+       4 |          1
+(3 rows)
+

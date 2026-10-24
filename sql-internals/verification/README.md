@@ -23,11 +23,10 @@ PostgreSQLのバージョンと設定は各フォルダのREADMEまたはログ�
 | 第6章 | [SQL](reading-records/ch06.sql)・[ログ](reading-records/ch06.log) | 50万件のソート。work_memを64MBと64kBで比較。trace.logに外部ソートの合流 |
 | 第7章 | [SQL](reading-records/ch07.sql)・[ログ](reading-records/ch07.log) | 全件ソートとLIMIT 20のtop-N heapsort |
 | 第8章 | [SQL](reading-records/ch08.sql)・[ログ](reading-records/ch08.log) | 本100万冊・読書記録200万件で3種類のJOINを比較 |
-| 第8章 | [SQL・ログ](ch08/small-20261013) | 本3冊・読書記録4件の結合計画（Nested Loop・Hash Join・Merge Join） |
+| 第8・9章 | [SQL](small-samples/observe.sql)・[ログ](small-samples/observe.log) | 星・海・森の通常テーブルを作成し、新しい接続でJOIN・集計を手動確認。計画を切り替えるSETなしでHash Joinが4件、HashAggregateが3件を返した |
+| 第8〜10章 | [SQL](small-samples/compare.sql)・[ログ](small-samples/compare.log)・[説明](small-samples/README.md) | 同じ通常テーブルで3種類のJOINと2種類の集計を比較。SUM・AVG・NULLの扱いと集計のcostも確認 |
 | 第9章 | [SQL](reading-records/ch09.sql)・[ログ](reading-records/ch09.log) | HashAggregateとGroupAggregateの結果を照合 |
-| 第9章 | [SQL・ログ](ch09/small-20261015) | 読書記録5件の集計計画 |
 | 第10章 | [SQL](reading-records/ch10.sql)・[ログ](reading-records/ch10.log) | 読書記録200万件の集計のn_distinctと推定件数 |
-| 第10章 | [SQL・ログ](ch10/agg-cost-20261018) | 読書記録5件の集計で、HashAggregate と GroupAggregate の cost を比べる |
 | 第10章 | [SQL・ログ](ch10/cats-20261018) | 猫の血液型のテーブル `cats` の統計・cost・統計の更新 |
 | 第10章 | [SQL・ログ](ch10/analyze-sample-20261022) | `ANALYZE` が統計に使うレコードの件数（読書記録200万件では全ページを読み、標本は30,000件。PostgreSQL 18.3、手元の一時クラスタ） |
 | 第11章 | [SQL・ログ](ch11/two-sessions-rc-20261019) | 2つの接続の実験（Read Committed）と、実行中の SELECT が元のレコードを残す実験 |
