@@ -277,7 +277,7 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 3つとも、結合が返す実際の件数は50万件です。Hash Joinでメモリを増やす比較は、その実験の`BEGIN`のあとに`SET LOCAL work_mem = '64MB';`を追加します。元のSQLと設定は[測定SQL](verification/reading-records/ch08.sql)にもあります。
 
-小さな例のテーブルは、接続を閉じても残ります。第9章では別の集計用テーブルを使うので、この章のデータはそのままにして進めます。
+小さな例のテーブルは、接続を閉じても残ります。第9章では読書記録200万件の`reading_records`を使うので、この章のデータはそのままにして進めます。
 
 <a id="chapter-09"></a>
 
@@ -362,7 +362,7 @@ SELECT blood_type, count(*) FROM cats GROUP BY blood_type ORDER BY blood_type;
 
 ### 5件の集計のcost
 
-第9章で使った`public.aggregate_records_sample`を、そのまま使います。テーブルを作り直したり、別の接続を開いたりする準備は不要です。
+第9章の補足で紹介した`public.aggregate_records_sample`を、そのまま使います。テーブルを作り直したり、別の接続を開いたりする準備は不要です。
 
 ```sql
 EXPLAIN
