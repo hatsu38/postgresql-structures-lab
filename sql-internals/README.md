@@ -285,48 +285,44 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 途中から始める場合も、共通設定で`work_mem`を4MBにしてから進めます。
 
-読書記録5件は、初期化時に`public.aggregate_records_sample`へ入っています。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
-
-集計のSQLは次のとおりです。
-
-```sql
-SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
-GROUP BY book_id;
-```
-
-結果は本の表9.2と同じ3件です。`ORDER BY`を付けていないので、返ってくる順は決まっていません。
-
-まず、設定を切り替えずに選ばれる計画を見ます。
+本の第9章では、章の冒頭で見せた、読書記録200万件を本ごとに数えるSQLの実行計画を読みます。まず、設定を切り替えずに選ばれる計画を見ます。
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
+FROM reading_records
 GROUP BY book_id;
 ```
 
-この集計も、[再現用SQL](verification/small-samples/observe.sql)と[手元の確認ログ](verification/small-samples/observe.log)に含めています。
+`HashAggregate`の`Group Key: book_id`と、`rows=736097.00`（本ごとの集計結果の件数）を確認します。
 
-### 補足：集計方法を指定して比較する
-
-2種類の集計と、第10章で比べるcostのSQL・全出力は、[compare.sql](verification/small-samples/compare.sql)と[compare.log](verification/small-samples/compare.log)にあります。
-
-`GroupAggregate`を観察するには、`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使います。
+次に、`GroupAggregate`を観察します。`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使うので、設定はこの中だけで切り替わります。
 
 ```sql
 BEGIN;
 SET LOCAL enable_hashagg = off;
-EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+EXPLAIN (ANALYZE, BUFFERS)
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
+FROM reading_records
 GROUP BY book_id;
 ROLLBACK;
 ```
 
-`enable_hashagg`を`off`にすると、`HashAggregate`が選ばれなくなります。もう一方の集計手順を観察するための設定で、ふだんの検索で無効にするための設定例ではありません。
+`GroupAggregate`の下に`Sort Key: book_id`の`Sort`が付くことを確認します。`enable_hashagg`を`off`にすると、`HashAggregate`が選ばれなくなります。もう一方の集計手順を観察するための設定で、ふだんの検索で無効にするための設定例ではありません。
 
-実データ200万件の比較では、本の`reading_records`を集計するSQLに`EXPLAIN (ANALYZE, BUFFERS)`を付け、通常の設定と`enable_hashagg = off`で実行します。後者は上と同じ`BEGIN`〜`ROLLBACK`の中で行います。どちらの集計方法でもグループ数が736,097件となり、各本の件数も一致することは[測定SQLとログ](verification/reading-records/README.md)で確認できます。
+どちらの集計方法でもグループ数が736,097件となり、各本の件数も一致することは[測定SQLとログ](verification/reading-records/README.md)（`ch09.sql`・`ch09.log`）で確認できます。
+
+### 補足：第10章で使う小さな例
+
+第10章では、本の表9.1と同じ5件で、`HashAggregate`と`GroupAggregate`のcostを比べます。この5件は、初期化時に`public.aggregate_records_sample`へ入っています。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
+
+```sql
+SELECT book_id, count(*) AS read_count
+FROM public.aggregate_records_sample
+GROUP BY book_id;
+```
+
+結果は本の表9.2と同じ3件です。`ORDER BY`を付けていないので、返ってくる順は決まっていません。2種類の集計の実行計画とcostは、[compare.sql](verification/small-samples/compare.sql)と[compare.log](verification/small-samples/compare.log)にあります。
 
 集計用テーブルも、次回そのまま使えます。データを変えた場合は、[小さな例の初期化](../README.md#small-samples)で入れ直せます。
 
