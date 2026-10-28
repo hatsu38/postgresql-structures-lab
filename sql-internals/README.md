@@ -382,10 +382,6 @@ EXPLAIN SELECT book_id, count(*) FROM reading_records GROUP BY book_id;
 SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
 ```
 
-### 範囲検索の見積もり
-
-本の補足「範囲検索ではどう見積もるか」は、[猫の初期化](../README.md#cats-sample)で更新前の状態へ戻してから試します。本文で使う血液型の割合やページ数も初期状態へ戻るので、本文の途中で実行せず、本文の確認が済んでから行ってください。
-
 <a id="chapter-11"></a>
 
 ## 第11章：MVCCとVACUUM
