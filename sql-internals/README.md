@@ -312,20 +312,6 @@ ROLLBACK;
 
 どちらの集計方法でもグループ数が736,097件となり、各本の件数も一致することは[測定SQLとログ](verification/reading-records/README.md)（`ch09.sql`・`ch09.log`）で確認できます。
 
-### 補足：第10章で使う小さな例
-
-第10章では、本の表9.1と同じ5件で、`HashAggregate`と`GroupAggregate`のcostを比べます。この5件は、初期化時に`public.aggregate_records_sample`へ入っています。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
-
-```sql
-SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
-GROUP BY book_id;
-```
-
-結果は本の表9.2と同じ3件です。`ORDER BY`を付けていないので、返ってくる順は決まっていません。2種類の集計の実行計画とcostは、[compare.sql](verification/small-samples/compare.sql)と[compare.log](verification/small-samples/compare.log)にあります。
-
-集計用テーブルも、次回そのまま使えます。データを変えた場合は、[小さな例の初期化](../README.md#small-samples)で入れ直せます。
-
 <a id="chapter-10"></a>
 
 ## 第10章：プランナと統計情報
@@ -360,14 +346,15 @@ SELECT blood_type, count(*) FROM cats GROUP BY blood_type ORDER BY blood_type;
 
 確認が済んでも、通常テーブルの`cats`はそのまま残しておけます。やり直すときは、[猫の初期化](../README.md#cats-sample)でデータと統計を戻します。
 
-### 5件の集計のcost
+### 集計のcost
 
-第9章の補足で紹介した`public.aggregate_records_sample`を、そのまま使います。テーブルを作り直したり、別の接続を開いたりする準備は不要です。
+本の第10章では、第9章で`EXPLAIN (ANALYZE, BUFFERS)`した読書記録200万件の集計の実行計画から、costの部分を比べます。手元で見るときは、第9章の手順と同じSQLを`EXPLAIN`だけで実行します。
 
 ```sql
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample GROUP BY book_id;
+FROM reading_records
+GROUP BY book_id;
 ```
 
 次にハッシュによる集計を無効にして、もう一方の計画を確認します。
@@ -377,9 +364,12 @@ BEGIN;
 SET LOCAL enable_hashagg = off;
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample GROUP BY book_id;
+FROM reading_records
+GROUP BY book_id;
 ROLLBACK;
 ```
+
+いちばん下の`Seq Scan on reading_records`の`cost`は、テーブルのページ数 × 1 ＋ 2,000,000件 × 0.01です。本の値（`cost=0.00..30811.00`）は、[第9章の測定ログ](verification/reading-records/ch09.log)のものです。統計を取り直していると、集計の行の推定件数とcostは少し変わることがあります。
 
 ### 第9章のグループ数の見積もり
 
