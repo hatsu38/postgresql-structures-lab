@@ -37,7 +37,7 @@ docker compose exec -T db psql -X -v ON_ERROR_STOP=1 -U postgres -d reading_map 
 | `reading_records` | 本の番号と読了日時、200万レコード | Indexなし |
 | `books_sample` | 星・海・森の3冊 | `id`の主キーIndexあり |
 | `join_records_sample` | 第8章のJOIN用の読書記録4件 | Indexなし |
-| `aggregate_records_sample` | 第9章の集計用の読書記録5件 | Indexなし |
+| `aggregate_records_sample` | 本の表9.1と同じ読書記録5件（`sql-internals/verification/small-samples/`の検証で使う。本の手順では使わない） | Indexなし |
 | `cats` | 第10・11章の猫1万匹（A型9,000件・B型1,000件） | `blood_type`のIndex・統計あり、自動バキューム停止 |
 
 読書記録は2026年8月24日から9月20日までの4週間に分かれ、各週に50万件ずつあります。よく読まれる本に記録が偏るデータで、日時は200万件すべて異なります。乱数は使わないので、作り直しても同じデータになります。

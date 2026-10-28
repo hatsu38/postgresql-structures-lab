@@ -277,7 +277,7 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 3つとも、結合が返す実際の件数は50万件です。Hash Joinでメモリを増やす比較は、その実験の`BEGIN`のあとに`SET LOCAL work_mem = '64MB';`を追加します。元のSQLと設定は[測定SQL](verification/reading-records/ch08.sql)にもあります。
 
-小さな例のテーブルは、接続を閉じても残ります。第9章では別の集計用テーブルを使うので、この章のデータはそのままにして進めます。
+小さな例のテーブルは、接続を閉じても残ります。第9章では読書記録200万件の`reading_records`を使うので、この章のデータはそのままにして進めます。
 
 <a id="chapter-09"></a>
 
@@ -285,50 +285,32 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 途中から始める場合も、共通設定で`work_mem`を4MBにしてから進めます。
 
-読書記録5件は、初期化時に`public.aggregate_records_sample`へ入っています。第8章の4件とは別のテーブルなので、作り直す操作は不要です。
-
-集計のSQLは次のとおりです。
-
-```sql
-SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
-GROUP BY book_id;
-```
-
-結果は本の表9.2と同じ3件です。`ORDER BY`を付けていないので、返ってくる順は決まっていません。
-
-まず、設定を切り替えずに選ばれる計画を見ます。
+本の第9章では、章の冒頭で見せた、読書記録200万件を本ごとに数えるSQLの実行計画を読みます。まず、設定を切り替えずに選ばれる計画を見ます。
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
+FROM reading_records
 GROUP BY book_id;
 ```
 
-この集計も、[再現用SQL](verification/small-samples/observe.sql)と[手元の確認ログ](verification/small-samples/observe.log)に含めています。
+`HashAggregate`の`Group Key: book_id`と、`rows=736097.00`（本ごとの集計結果の件数）を確認します。
 
-### 補足：集計方法を指定して比較する
-
-2種類の集計と、第10章で比べるcostのSQL・全出力は、[compare.sql](verification/small-samples/compare.sql)と[compare.log](verification/small-samples/compare.log)にあります。
-
-`GroupAggregate`を観察するには、`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使います。
+次に、`GroupAggregate`を観察します。`BEGIN`から`ROLLBACK`までの中で`SET LOCAL`を使うので、設定はこの中だけで切り替わります。
 
 ```sql
 BEGIN;
 SET LOCAL enable_hashagg = off;
-EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+EXPLAIN (ANALYZE, BUFFERS)
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample
+FROM reading_records
 GROUP BY book_id;
 ROLLBACK;
 ```
 
-`enable_hashagg`を`off`にすると、`HashAggregate`が選ばれなくなります。もう一方の集計手順を観察するための設定で、ふだんの検索で無効にするための設定例ではありません。
+`GroupAggregate`の下に`Sort Key: book_id`の`Sort`が付くことを確認します。`enable_hashagg`を`off`にすると、`HashAggregate`が選ばれなくなります。もう一方の集計手順を観察するための設定で、ふだんの検索で無効にするための設定例ではありません。
 
-実データ200万件の比較では、本の`reading_records`を集計するSQLに`EXPLAIN (ANALYZE, BUFFERS)`を付け、通常の設定と`enable_hashagg = off`で実行します。後者は上と同じ`BEGIN`〜`ROLLBACK`の中で行います。どちらの集計方法でもグループ数が736,097件となり、各本の件数も一致することは[測定SQLとログ](verification/reading-records/README.md)で確認できます。
-
-集計用テーブルも、次回そのまま使えます。データを変えた場合は、[小さな例の初期化](../README.md#small-samples)で入れ直せます。
+どちらの集計方法でもグループ数が736,097件となり、各本の件数も一致することは[測定SQLとログ](verification/reading-records/README.md)（`ch09.sql`・`ch09.log`）で確認できます。
 
 <a id="chapter-10"></a>
 
@@ -364,14 +346,15 @@ SELECT blood_type, count(*) FROM cats GROUP BY blood_type ORDER BY blood_type;
 
 確認が済んでも、通常テーブルの`cats`はそのまま残しておけます。やり直すときは、[猫の初期化](../README.md#cats-sample)でデータと統計を戻します。
 
-### 5件の集計のcost
+### 集計のcost
 
-第9章で使った`public.aggregate_records_sample`を、そのまま使います。テーブルを作り直したり、別の接続を開いたりする準備は不要です。
+本の第10章では、第9章で`EXPLAIN (ANALYZE, BUFFERS)`した読書記録200万件の集計の実行計画から、costの部分を比べます。手元で見るときは、第9章の手順と同じSQLを`EXPLAIN`だけで実行します。
 
 ```sql
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample GROUP BY book_id;
+FROM reading_records
+GROUP BY book_id;
 ```
 
 次にハッシュによる集計を無効にして、もう一方の計画を確認します。
@@ -381,9 +364,12 @@ BEGIN;
 SET LOCAL enable_hashagg = off;
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample GROUP BY book_id;
+FROM reading_records
+GROUP BY book_id;
 ROLLBACK;
 ```
+
+いちばん下の`Seq Scan on reading_records`の`cost`は、テーブルのページ数 × 1 ＋ 2,000,000件 × 0.01です。本の値（`cost=0.00..30811.00`）は、[第9章の測定ログ](verification/reading-records/ch09.log)のものです。統計を取り直していると、集計の行の推定件数とcostは少し変わることがあります。
 
 ### 第9章のグループ数の見積もり
 
@@ -395,10 +381,6 @@ WHERE schemaname = 'public' AND tablename = 'reading_records' AND attname = 'boo
 EXPLAIN SELECT book_id, count(*) FROM reading_records GROUP BY book_id;
 SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
 ```
-
-### 範囲検索の見積もり
-
-本の補足「範囲検索ではどう見積もるか」は、[猫の初期化](../README.md#cats-sample)で更新前の状態へ戻してから試します。本文で使う血液型の割合やページ数も初期状態へ戻るので、本文の途中で実行せず、本文の確認が済んでから行ってください。
 
 <a id="chapter-11"></a>
 
