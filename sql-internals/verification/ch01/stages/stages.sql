@@ -17,6 +17,8 @@ SELECT id, titel FROM books WHERE title = '実験用の本 42';
 SELECT id, title FROM book WHERE title = '実験用の本 42';
 \echo === 5. アナライザで止まる（型が合わない）
 SELECT id, title FROM books WHERE title = 42;
+\echo === 5b. アナライザで止まる（整数のカラムに文字列を指定）
+SELECT id, title FROM books WHERE id = '実験用の本 42';
 \echo === 6. ビューを作る
 CREATE VIEW book_titles AS SELECT id, title FROM books;
 \echo === 7. ビューの定義

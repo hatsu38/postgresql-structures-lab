@@ -50,6 +50,12 @@ ERROR:  operator does not exist: text = integer
 LINE 1: SELECT id, title FROM books WHERE title = 42;
                                                 ^
 HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+\echo === 5b. アナライザで止まる（整数のカラムに文字列を指定）
+=== 5b. アナライザで止まる（整数のカラムに文字列を指定）
+SELECT id, title FROM books WHERE id = '実験用の本 42';
+ERROR:  invalid input syntax for type bigint: "実験用の本 42"
+LINE 1: SELECT id, title FROM books WHERE id = '実験用の本 42';
+                                               ^
 \echo === 6. ビューを作る
 === 6. ビューを作る
 CREATE VIEW book_titles AS SELECT id, title FROM books;
