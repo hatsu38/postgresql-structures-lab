@@ -21,6 +21,7 @@
 4. observe.sql：最新20件、通常の週検索、方式を指定したNested Loop・Hash Join・Merge Join、work_memだけを64MBに変えたHash Join。出力はobserve.log。
 5. check-results.py：全結果を結合前の記録と照合する。出力はcheck-results.log。
 6. small.sql：説明用の3冊・4記録と、重複キー2×3＝6組を確認。出力はsmall.log。
+7. merge-sort-vs-index.sql：小さな例のMerge Joinで、本3冊の側を Seq Scan と Sort で並べる見積もり（約1.06）と、主キーのIndexで取り出す見積もり（約12.18）を比べる。`public.books_sample`・`public.join_records_sample`を使う（準備は`sql/samples.sql`）。出力はmerge-sort-vs-index.log。
 
 再現するときは、専用コンテナを起動して接続可能になってから、上の順序で完了を待って実行する。
 

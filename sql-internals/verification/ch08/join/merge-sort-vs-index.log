@@ -1,0 +1,59 @@
+-- 第8章：Merge Joinで、本3冊の側をSortで並べるか、主キーのIndexで取り出すかの見積もりを比べる
+-- 本文の「本の側を Seq Scan と Sort で並べるほうが、Index Scan より安いとプランナが見積もった」の根拠
+-- 準備：sql/samples.sql で public.books_sample・public.join_records_sample を用意しておく
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+SELECT version();
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+BEGIN;
+BEGIN
+-- Merge Joinだけを選ばせる
+SET LOCAL enable_hashjoin = off;
+SET
+SET LOCAL enable_nestloop = off;
+SET
+\echo === 1. そのまま：本の側も Seq Scan → Sort になる ===
+=== 1. そのまま：本の側も Seq Scan → Sort になる ===
+EXPLAIN
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                                   QUERY PLAN                                    
+---------------------------------------------------------------------------------
+ Merge Join  (cost=2.13..2.21 rows=4 width=8)
+   Merge Cond: (r.book_id = b.id)
+   ->  Sort  (cost=1.08..1.09 rows=4 width=4)
+         Sort Key: r.book_id
+         ->  Seq Scan on join_records_sample r  (cost=0.00..1.04 rows=4 width=4)
+   ->  Sort  (cost=1.05..1.06 rows=3 width=8)
+         Sort Key: b.id
+         ->  Seq Scan on books_sample b  (cost=0.00..1.03 rows=3 width=8)
+(8 rows)
+
+\echo === 2. Seq Scanを使わせない：本の側が Index Scan になる ===
+=== 2. Seq Scanを使わせない：本の側が Index Scan になる ===
+-- 記録の側は Index がないので Seq Scan のまま残り、Disabled: true と出る
+SET LOCAL enable_seqscan = off;
+SET
+EXPLAIN
+SELECT r.book_id, b.title
+FROM public.join_records_sample AS r
+JOIN public.books_sample AS b ON b.id = r.book_id;
+                                          QUERY PLAN                                           
+-----------------------------------------------------------------------------------------------
+ Merge Join  (cost=1.21..13.32 rows=4 width=8)
+   Merge Cond: (r.book_id = b.id)
+   ->  Sort  (cost=1.08..1.09 rows=4 width=4)
+         Sort Key: r.book_id
+         ->  Seq Scan on join_records_sample r  (cost=0.00..1.04 rows=4 width=4)
+               Disabled: true
+   ->  Index Scan using books_sample_pkey on books_sample b  (cost=0.13..12.18 rows=3 width=8)
+(7 rows)
+
+ROLLBACK;
+ROLLBACK
