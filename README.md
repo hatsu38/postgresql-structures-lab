@@ -1,6 +1,6 @@
-# 『EXPLAINを読みながら学ぶPostgreSQLとアルゴリズム』の実験環境
+# 『EXPLAINが読み解けるようになる！PostgreSQLの仕組みとアルゴリズムの本』の実験環境
 
-[『EXPLAINを読みながら学ぶPostgreSQLとアルゴリズム ─ B-tree・ソート・ヒープ・ハッシュ表はどう動くか』](https://github.com/hatsu38/zenn/tree/main/books/postgresql-explain-algorithms)に出てくるSQLを実行し、自分で動作を確かめるためのリポジトリです。
+[『EXPLAINが読み解けるようになる！PostgreSQLの仕組みとアルゴリズムの本 ─ B-tree・ソート・ヒープ・ハッシュテーブルはどう動くか』](https://github.com/hatsu38/zenn/tree/main/books/postgresql-explain-algorithms)に出てくるSQLを実行し、自分で動作を確かめるためのリポジトリです。
 
 初めて使うときは、下の手順でデータを用意して、題名検索を試してください。その後は、[章ごとの手順](sql-internals/README.md)で準備を済ませてから、本のSQLを実行します。途中の章から始める場合も、各章の手順を使えます。
 
@@ -107,17 +107,17 @@ SELECT id, title FROM books WHERE title = '実験用の本 42';
 
 | 本の章 | 手元で確かめること |
 | --- | --- |
-| [第1章：SQLの解析・計画・実行](sql-internals/README.md#chapter-01) | ビューから元のテーブルを読む計画 |
-| [第2章：EXPLAIN](sql-internals/README.md#chapter-02) | 見積もりと実測、処理した件数 |
-| [第3章：ページとSeq Scan](sql-internals/README.md#chapter-03) | `ctid`、ページの大きさと件数 |
-| [第4章：B-treeとIndex Scan](sql-internals/README.md#chapter-04) | 題名Indexを作る前後の検索 |
-| [第5章：共有バッファとBitmap Scan](sql-internals/README.md#chapter-05) | 同じ検索の`hit`・`read`、1日分の71,428件の検索 |
-| [第6章：ORDER BY](sql-internals/README.md#chapter-06) | 50万件のソートを64MBと64kBで比較 |
-| [第7章：LIMITとヒープ](sql-internals/README.md#chapter-07) | 全件ソートと上位20件の選択 |
-| [第8章：JOIN](sql-internals/README.md#chapter-08) | 小さな例と50万件で3種類の結合を比較 |
-| [第9章：GROUP BY](sql-internals/README.md#chapter-09) | ハッシュ表を使う集計と、並べてから行う集計 |
-| [第10章：プランナと統計情報](sql-internals/README.md#chapter-10) | 猫1万匹の統計、cost、更新前後の見積もり |
-| [第11章：MVCCとVACUUM](sql-internals/README.md#chapter-11) | 2つの接続から見える題名、元のレコードの片付け、Index Only Scan |
+| [第1章：SQLを実行したとき、PostgreSQLの中では何が起きているのか](sql-internals/README.md#chapter-01) | ビューから元のテーブルを読む計画 |
+| [第2章：EXPLAINで実行計画を読んでみよう](sql-internals/README.md#chapter-02) | 見積もりと実測、処理した件数 |
+| [第3章：レコードを保存するページとSeq Scanの仕組み](sql-internals/README.md#chapter-03) | `ctid`、ページの大きさと件数 |
+| [第4章：Indexはどうやって目的のレコードを見つけるのか](sql-internals/README.md#chapter-04) | 題名Indexを作る前後の検索 |
+| [第5章：一度読んだページを使い回す共有バッファと、ページごとにまとめて取り出すBitmap Scan](sql-internals/README.md#chapter-05) | 同じ検索の`hit`・`read`、1日分の71,428件の検索 |
+| [第6章：ORDER BYはどうやってレコードを並べるのか](sql-internals/README.md#chapter-06) | 50万件のソートを64MBと64kBで比較 |
+| [第7章：ORDER BYとLIMITはどうやって上位のレコードを選ぶのか](sql-internals/README.md#chapter-07) | 全件ソートと上位20件の選択 |
+| [第8章：JOINはどうやって2つのテーブルを結び付けるのか](sql-internals/README.md#chapter-08) | 本3冊と読書記録4件で3種類の結合を比較 |
+| [第9章：GROUP BYはどうやって本ごとに読まれた回数を数えるのか](sql-internals/README.md#chapter-09) | ハッシュテーブルを使う集計と、並べてから行う集計 |
+| [第10章：プランナはどうやってコストを見積もり、実行計画を選ぶのか](sql-internals/README.md#chapter-10) | 猫1万匹の統計、cost、更新前後の見積もり |
+| [第11章：MVCC・VACUUM・Visibility Mapの仕組み](sql-internals/README.md#chapter-11) | 2つの接続から見える題名、元のレコードの片付け、Index Only Scan |
 
 ## 本の結果と見比べる
 

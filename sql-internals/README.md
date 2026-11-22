@@ -1,6 +1,6 @@
-# 『EXPLAINを読みながら学ぶPostgreSQLとアルゴリズム』のSQLを手元で実行する
+# 『EXPLAINが読み解けるようになる！PostgreSQLの仕組みとアルゴリズムの本』のSQLを手元で実行する
 
-本『EXPLAINを読みながら学ぶPostgreSQLとアルゴリズム ─ B-tree・ソート・ヒープ・ハッシュ表はどう動くか』のSQLを、手元で実行するための手順です。各章の準備を済ませてから、本に載っているSQLを実行してください。初期化・接続・リセットは[ルートのREADME](../README.md)、本に載せていないテーブルの作成やIndexの付け外しは、この手順で確認できます。
+本『EXPLAINが読み解けるようになる！PostgreSQLの仕組みとアルゴリズムの本 ─ B-tree・ソート・ヒープ・ハッシュテーブルはどう動くか』のSQLを、手元で実行するための手順です。各章の準備を済ませてから、本に載っているSQLを実行してください。初期化・接続・リセットは[ルートのREADME](../README.md)、本に載せていないテーブルの作成やIndexの付け外しは、この手順で確認できます。
 
 本の実行結果は、PostgreSQL 18.6で測定しました。処理時間やバッファアクセス数は、実行環境のスペックや直前の処理によって変わります。実行計画の処理名とレコード数を比べてください。本に載せた実行結果を測定したときのSQLと全出力は、[verification](verification/README.md)に置いています。
 
@@ -33,7 +33,7 @@ SET work_mem = '4MB';
 
 <a id="chapter-01"></a>
 
-## 第1章：SQLの解析・計画・実行
+## 第1章：SQLを実行したとき、PostgreSQLの中では何が起きているのか
 
 初期データを使います。第4章以降から戻った場合は題名Indexを外し、同じ章をやり直す場合はビューも削除します。
 
@@ -51,7 +51,7 @@ DROP VIEW book_titles;
 
 <a id="chapter-02"></a>
 
-## 第2章：EXPLAIN
+## 第2章：EXPLAINで実行計画を読んでみよう
 
 題名Indexがない状態で、本の`EXPLAIN`と`EXPLAIN (ANALYZE, BUFFERS)`を実行します。途中から始める場合は次を実行してください。
 
@@ -64,13 +64,13 @@ ANALYZE books;
 
 <a id="chapter-03"></a>
 
-## 第3章：ページとSeq Scan
+## 第3章：レコードを保存するページとSeq Scanの仕組み
 
 初期データの`books`を使い、本の`ctid`・ページサイズ・ページ数のSQLを実行します。基本データを更新していなければ、追加の準備はありません。`ctid`の先頭の番号が同じレコードは、同じページに入っていることを確認します。
 
 <a id="chapter-04"></a>
 
-## 第4章：B-treeとIndex Scan
+## 第4章：Indexはどうやって目的のレコードを見つけるのか
 
 最初は題名Indexを外します。`books`の`id`にある主キーIndexは残します。
 
@@ -83,7 +83,7 @@ ANALYZE books;
 
 <a id="chapter-05"></a>
 
-## 第5章：共有バッファとBitmap Scan
+## 第5章：一度読んだページを使い回す共有バッファと、ページごとにまとめて取り出すBitmap Scan
 
 途中から始める場合は、共有バッファの観察で使う題名Indexを用意します。
 
@@ -105,7 +105,7 @@ DROP INDEX IF EXISTS reading_records_order_idx;
 
 <a id="chapter-06"></a>
 
-## 第6章：ORDER BY
+## 第6章：ORDER BYはどうやってレコードを並べるのか
 
 測定では、読書記録200万件を使い、`reading_records`にIndexが貼られていない状態で実行しています。第5章のSQLを続けて実行している場合は、そこで貼った日時のIndexを外してから試してください。
 
@@ -143,7 +143,7 @@ SET work_mem = '4MB';
 
 <a id="chapter-07"></a>
 
-## 第7章：LIMITとヒープ
+## 第7章：ORDER BYとLIMITはどうやって上位のレコードを選ぶのか
 
 共通設定と、第6章を終えた状態を使います。`reading_records`にIndexが貼られていない状態で比べます。第5章の日時Indexをまだ外していなければ、次のSQLで外してください。
 
@@ -175,7 +175,7 @@ LIMIT 20;
 
 <a id="chapter-08"></a>
 
-## 第8章：JOIN
+## 第8章：JOINはどうやって2つのテーブルを結び付けるのか
 
 ### 本3冊と読書記録4件で手順を追う
 
@@ -281,7 +281,7 @@ WHERE r.finished_at >= timestamp '2026-09-14'
 
 <a id="chapter-09"></a>
 
-## 第9章：GROUP BY
+## 第9章：GROUP BYはどうやって本ごとに読まれた回数を数えるのか
 
 途中から始める場合も、共通設定で`work_mem`を4MBにしてから進めます。
 
@@ -332,7 +332,7 @@ ROLLBACK;
 
 <a id="chapter-10"></a>
 
-## 第10章：プランナと統計情報
+## 第10章：プランナはどうやってコストを見積もり、実行計画を選ぶのか
 
 ### 猫の初期データから始める
 
@@ -402,7 +402,7 @@ SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
 
 <a id="chapter-11"></a>
 
-## 第11章：MVCCとVACUUM
+## 第11章：MVCC・VACUUM・Visibility Mapの仕組み
 
 ### 2つの接続を用意する
 
