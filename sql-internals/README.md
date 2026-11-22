@@ -167,11 +167,11 @@ SELECT book_id, finished_at
 FROM reading_records
 WHERE finished_at >= timestamp '2026-09-14'
   AND finished_at < timestamp '2026-09-21'
-ORDER BY finished_at DESC
+ORDER BY finished_at DESC, book_id ASC
 LIMIT 20;
 ```
 
-`Sort Method: top-N heapsort`と、`Limit`が返す20件を確認します。`LIMIT 20`を外して実行すると、全件ソートと比較できます。実行結果の全体は[測定ログ](verification/reading-records/ch07.log)で確認できます。
+本と同じく、第6章と同じ`ORDER BY finished_at DESC, book_id ASC`で並べます。`Sort Method: top-N heapsort`と、`Limit`が返す20件を確認します。`LIMIT 20`を外して実行すると、全件ソートと比較できます。実行結果の全体は[測定ログ](verification/reading-records/ch07.log)で確認できます。
 
 <a id="chapter-08"></a>
 
