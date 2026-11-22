@@ -517,7 +517,7 @@ SELECT pg_relation_size('cats') / current_setting('block_size')::int AS pages;
 
 ### Index Only ScanのHeap Fetchesを見る
 
-本の表11.1では、読書記録を複製して使います。次のSQLで複製とIndexを用意し、VACUUM後の検索を確認します。`VACUUM`は`BEGIN`の外で実行します。
+本の表11.2では、読書記録を複製して使います。次のSQLで複製とIndexを用意し、VACUUM後の検索を確認します。`VACUUM`は`BEGIN`の外で実行します。
 
 ```sql
 CREATE TABLE mvcc_reading_records WITH (autovacuum_enabled = false) AS
@@ -540,6 +540,13 @@ EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)
 SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
 ```
 
+VACUUMする前に、同じ検索をもう一度実行します。
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, SUMMARY OFF)
+SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
+```
+
 最後にVACUUMして、もう一度検索します。
 
 ```sql
@@ -549,4 +556,6 @@ SELECT book_id, finished_at FROM mvcc_reading_records WHERE book_id = 42;
 DROP TABLE mvcc_reading_records;
 ```
 
-3回の`Heap Fetches`を比べます。本の0→2→0は各段階で検索を1回ずつ実行した値です。更新直後の検索を繰り返すと、検索自体がIndexの項目に不要の印を付けるため、値が変わることがあります。ページの中身や可視性マップまで調べる測定SQLは[読書記録の実験](verification/reading-records/README.md)にあり、ルートのREADMEの`run.py`でまとめて実行できます。
+4回の`Heap Fetches`を比べます。本では0→2→1→0でした。2回目の検索で元のレコードがどのSELECTからも見えないと分かると、検索自体がそのインデックスエントリに不要の印を付けます。そのため、3回目の検索では確認が1回に減ります。
+
+最後の検索が0にならず1のままのときは、更新の前と後に`SELECT ctid FROM mvcc_reading_records WHERE book_id = 42;`を実行して、レコードの位置を比べてください。本の測定では、元のレコードはページ4428、新しいレコードはページ10810にありました。元のレコードと新しいレコードが同じページに入ると、VACUUMの出力に`index scan bypassed`と`0 pages set all-visible`が出ます。VACUUMがIndexの片付けを省略し、そのページのビットも1にしないため、最後の検索でもテーブルを1回確認します。ページの中身や可視性マップまで調べる測定SQLは[読書記録の実験](verification/reading-records/README.md)にあり、ルートのREADMEの`run.py`でまとめて実行できます。
