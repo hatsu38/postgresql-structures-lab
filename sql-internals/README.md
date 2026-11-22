@@ -43,7 +43,7 @@ DROP VIEW IF EXISTS book_titles;
 ANALYZE books;
 ```
 
-本の題名検索、`CREATE VIEW book_titles ...`、ビューを読む`EXPLAIN`の順に実行します。計画の`on books`から、ビューの元のテーブルを読むことを確認できます。`\d+ book_titles`はpsqlへの命令なので、ほかのSQLと分けて入力します。確認後はビューを削除できます。
+本の題名検索、`title = 42`の検索、`CREATE VIEW book_titles ...`、ビューを読む`EXPLAIN`の順に実行します。`title = 42`の検索は、本と同じ`operator does not exist: text = integer`のエラーで止まります。文字列の`title`と整数の`42`を比べられないためです。計画の`on books`からは、ビューの元のテーブルを読むことを確認できます。確認後はビューを削除できます。
 
 ```sql
 DROP VIEW book_titles;
