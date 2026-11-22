@@ -31,7 +31,7 @@
 | `ch08.sql` / `ch08.log` | 3種類のJOINで50万件の内容・重複が一致 |
 | `ch09.sql` / `ch09.log` | 2種類の集計で736,097グループの件数が一致。推定は77,358 |
 | `ch10.sql` / `ch10.log` | 統計を取り直したときの推定は76,011。実際は736,097グループ |
-| `ch11.sql` / `ch11.log` | Index Only ScanのHeap Fetchesは0→2→0。途中で同じ検索を繰り返したときは1 |
+| `ch11.sql` / `ch11.log` | Index Only ScanのHeap Fetchesは0→2→1→0（更新直後の検索を2回実行） |
 | `check-results.py` / `check-results.log` | ソート、上位20件、JOIN、集計、本ごとの件数を照合 |
 | `check-manuscript.py` / `check-manuscript.log` | 原稿の出力・数値・参照先をログと照合 |
 | `initial-check.sql` / `initial-check.log` / `initial-check-negative.log` | 初期件数チェックが正常データを受け入れ、1件だけ週を変えると拒否。後者のERRORは意図した検出結果で、変更はROLLBACK済み |
