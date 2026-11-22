@@ -1,6 +1,6 @@
 # 正誤表
 
-『EXPLAINを読みながら学ぶPostgreSQLとアルゴリズム』の誤りと、その訂正です。
+『EXPLAINが読み解けるようになる！PostgreSQLの仕組みとアルゴリズムの本』の誤りと、その訂正です。
 
 誤りに気付いたときは、[Issue](https://github.com/hatsu38/postgresql-structures-lab/issues)でお知らせください。
 
