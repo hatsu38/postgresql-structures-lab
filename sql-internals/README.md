@@ -114,7 +114,7 @@ DROP INDEX IF EXISTS reading_records_finished_at_idx;
 DROP INDEX IF EXISTS reading_records_order_idx;
 ```
 
-上のSQLでは、第8章以降で使う`reading_records_order_idx`も外します。まず、`work_mem`を64MBにして、章の冒頭のSQLに`EXPLAIN (ANALYZE, BUFFERS)`を付けて実行します。
+上のSQLでは、以前の手順で作った`reading_records_order_idx`も外します。まず、`work_mem`を64MBにして、章の冒頭のSQLに`EXPLAIN (ANALYZE, BUFFERS)`を付けて実行します。
 
 ```sql
 SET work_mem = '64MB';
@@ -151,7 +151,7 @@ SET work_mem = '4MB';
 DROP INDEX IF EXISTS reading_records_finished_at_idx;
 ```
 
-第8章のIndexを作ってある場合は、`reading_records_order_idx`も外してから比べます。
+以前の手順で`reading_records_order_idx`を作ってある場合は、それも外してから比べます。
 
 ```sql
 DROP INDEX IF EXISTS reading_records_order_idx;
@@ -181,12 +181,12 @@ LIMIT 20;
 
 本3冊と読書記録4件は、初期化時に`public.books_sample`・`public.join_records_sample`へ入っています。以前から使っているDBへ追加する場合や、データを入れ直す場合は、[小さな例の初期化](../README.md#small-samples)を実行してください。
 
-まず、結合のSQLを実行します。本文と同じ`public.join_records_sample`と`public.books_sample`を使います。
+まず、本と同じ結合のSQLを実行します。
 
 ```sql
 SELECT r.book_id, b.title
-FROM public.join_records_sample AS r
-JOIN public.books_sample AS b ON b.id = r.book_id;
+FROM join_records_sample AS r
+JOIN books_sample AS b ON b.id = r.book_id;
 ```
 
 ```text
@@ -201,13 +201,13 @@ JOIN public.books_sample AS b ON b.id = r.book_id;
 
 本の表8.2と同じ4件が返ります。本2の「海」も2回出ています。`ORDER BY`を指定していないので、表示順は変わることがあります。
 
-続いて、設定を切り替えずに選ばれる計画を見ます。
+続いて、設定を切り替えずに選ばれる計画を見ます。本の測定では`Hash Join`が選ばれました。
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT r.book_id, b.title
-FROM public.join_records_sample AS r
-JOIN public.books_sample AS b ON b.id = r.book_id;
+FROM join_records_sample AS r
+JOIN books_sample AS b ON b.id = r.book_id;
 ```
 
 サンプルの作成から、新しい接続でSELECTとEXPLAINを実行した手元の全出力は、[確認ログ](verification/small-samples/observe.log)にあります。[再現用SQL](verification/small-samples/observe.sql)でも同じ検索を試せます。
@@ -229,14 +229,14 @@ SET LOCAL enable_hashjoin = off;
 SET LOCAL enable_mergejoin = off;
 EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
 SELECT r.book_id, b.title
-FROM public.join_records_sample AS r
-JOIN public.books_sample AS b ON b.id = r.book_id;
+FROM join_records_sample AS r
+JOIN books_sample AS b ON b.id = r.book_id;
 ROLLBACK;
 ```
 
 `enable_hashjoin`と`enable_mergejoin`を`off`にして、ほかの2つが選ばれにくいようにしています。`enable_memoize`は、同じ番号で探した結果を再利用する仕組みの設定です。ここでは繰り返しそのものを見たいので、3つの方法を比べる間は、これも`off`にそろえます。ふだんの検索で無効にするための設定例ではありません。
 
-内側にIndexを使う`Nested Loop`を観察するには、上の設定に`SET LOCAL enable_seqscan = off;`を加えます。外側の`Seq Scan`には`Disabled: true`と表示されますが、記録4件を読む方法がほかにないので、そのまま使われます。
+内側に本の一覧を保存する`Materialize`が出て、`loops=4`になることを確認します。
 
 `Hash Join`を観察するには、上の`enable_hashjoin`と`enable_mergejoin`の2行を次の2行に置き換えます。`enable_memoize = off`は残します。
 
@@ -251,31 +251,6 @@ SET LOCAL enable_mergejoin = off;
 SET LOCAL enable_nestloop = off;
 SET LOCAL enable_hashjoin = off;
 ```
-
-### 読書記録50万件で3つの結合を比べる
-
-途中から始める場合も、次を実行してください。第5章の日時Indexを外し、読書記録50万件の結合で使うIndexを用意します。作業用メモリも4MBに戻します。
-
-```sql
-SET work_mem = '4MB';
-DROP INDEX IF EXISTS reading_records_finished_at_idx;
-CREATE INDEX IF NOT EXISTS reading_records_order_idx
-ON reading_records (finished_at DESC, book_id ASC);
-ANALYZE reading_records;
-```
-
-上の`BEGIN`〜`ROLLBACK`の枠で、EXPLAINとSELECTを次のSQLに置き換え、同じ3通りの設定で実行します。
-
-```sql
-EXPLAIN (ANALYZE, BUFFERS)
-SELECT r.book_id, b.title, r.finished_at
-FROM reading_records AS r
-JOIN books AS b ON b.id = r.book_id
-WHERE r.finished_at >= timestamp '2026-09-14'
-  AND r.finished_at < timestamp '2026-09-21';
-```
-
-3つとも、結合が返す実際の件数は50万件です。Hash Joinでメモリを増やす比較は、その実験の`BEGIN`のあとに`SET LOCAL work_mem = '64MB';`を追加します。元のSQLと設定は[測定SQL](verification/reading-records/ch08.sql)にもあります。
 
 小さな例のテーブルは、接続を閉じても残ります。第9章では別の集計用テーブルを使うので、この章のデータはそのままにして進めます。
 
