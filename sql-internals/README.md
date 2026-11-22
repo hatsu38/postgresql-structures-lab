@@ -352,11 +352,33 @@ SELECT * FROM cats WHERE blood_type = 'B';
 
 ### 選ばれなかったScanのcostを確認する
 
-`UPDATE`の前に、本の補足の`BEGIN`から`ROLLBACK`までを実行します。`ROLLBACK`で設定だけを戻し、準備済みの`cats`は残ります。
+本の表10.1の4つのcostのうち、A型のIndex ScanとB型のSeq Scanは、設定を変えないと表示されません。`UPDATE`の前に、次の2つを実行します。`SET LOCAL`で変えた設定は`ROLLBACK`で元に戻り、準備済みの`cats`はそのまま残ります。
+
+A型をIndex Scanで探したときのcostを表示します。Seq ScanとBitmap Scanを選ばれにくくします。
+
+```sql
+BEGIN;
+SET LOCAL enable_seqscan = off;
+SET LOCAL enable_bitmapscan = off;
+EXPLAIN SELECT * FROM cats WHERE blood_type = 'A';
+ROLLBACK;
+```
+
+B型をSeq Scanで探したときのcostを表示します。Index ScanとBitmap Scanを選ばれにくくします。
+
+```sql
+BEGIN;
+SET LOCAL enable_indexscan = off;
+SET LOCAL enable_bitmapscan = off;
+EXPLAIN SELECT * FROM cats WHERE blood_type = 'B';
+ROLLBACK;
+```
+
+A型の`Index Scan`は`cost=0.29..258.79`、B型の`Seq Scan`は`cost=0.00..189.00`になります。設定を変えずに表示した、A型の`Seq Scan`の189.00とB型の`Index Scan`の35.78と合わせて、表10.1の4つがそろいます。どれも検索方法を比べるための設定で、ふだんの検索で無効にするための設定例ではありません。
 
 ### 件数を確認する
 
-更新前・UPDATE後・ANALYZE後に、次のSQLで実際の件数を確認できます。統計の割合は本のSQLで見られ、`n_distinct`も同じSQLの列に足せば表示されます。
+更新前・UPDATE後・ANALYZE後に、次のSQLで実際の件数を確認できます。統計の割合と`n_distinct`は、本の`pg_stats`のSQLで見られます。
 
 ```sql
 SELECT blood_type, count(*) FROM cats GROUP BY blood_type ORDER BY blood_type;
@@ -364,26 +386,30 @@ SELECT blood_type, count(*) FROM cats GROUP BY blood_type ORDER BY blood_type;
 
 確認が済んでも、通常テーブルの`cats`はそのまま残しておけます。やり直すときは、[猫の初期化](../README.md#cats-sample)でデータと統計を戻します。
 
-### 5件の集計のcost
+### HashAggregateとGroupAggregateのcost
 
-第9章で使った`public.aggregate_records_sample`を、そのまま使います。テーブルを作り直したり、別の接続を開いたりする準備は不要です。
+第9章と同じ、読書記録200万件を本ごとに数えるSQLのcostを比べます。まず、設定を変えずに表示します。
 
 ```sql
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample GROUP BY book_id;
+FROM reading_records
+GROUP BY book_id;
 ```
 
-次にハッシュによる集計を無効にして、もう一方の計画を確認します。
+次にハッシュによる集計を選ばれにくくして、もう一方の計画を表示します。
 
 ```sql
 BEGIN;
 SET LOCAL enable_hashagg = off;
 EXPLAIN
 SELECT book_id, count(*) AS read_count
-FROM public.aggregate_records_sample GROUP BY book_id;
+FROM reading_records
+GROUP BY book_id;
 ROLLBACK;
 ```
+
+`HashAggregate`の行のcostが、`Sort`を挟む`GroupAggregate`の行のcostよりずっと小さいことを確認します。本では41,584.58と310,591.27でした。costの計算には推定したグループ数（本では`rows=77358`）を使うため、`ANALYZE`が調べるレコードによって、手元の値は少し変わります。
 
 ### 第9章のグループ数の見積もり
 
@@ -395,10 +421,6 @@ WHERE schemaname = 'public' AND tablename = 'reading_records' AND attname = 'boo
 EXPLAIN SELECT book_id, count(*) FROM reading_records GROUP BY book_id;
 SELECT count(DISTINCT book_id) AS actual_groups FROM reading_records;
 ```
-
-### 範囲検索の見積もり
-
-本の補足「範囲検索ではどう見積もるか」は、[猫の初期化](../README.md#cats-sample)で更新前の状態へ戻してから試します。本文で使う血液型の割合やページ数も初期状態へ戻るので、本文の途中で実行せず、本文の確認が済んでから行ってください。
 
 <a id="chapter-11"></a>
 
